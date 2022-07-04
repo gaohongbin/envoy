@@ -345,6 +345,8 @@ private:
  * Default O(1) request and response headers.
  */
 #define INLINE_REQ_RESP_STRING_HEADERS(HEADER_FUNC)                                                \
+  HEADER_FUNC(Sw3)                                                                                 \
+  HEADER_FUNC(TcloudLane)                                                                          \
   HEADER_FUNC(Connection)                                                                          \
   HEADER_FUNC(ContentType)                                                                         \
   HEADER_FUNC(EnvoyDecoratorOperation)                                                             \

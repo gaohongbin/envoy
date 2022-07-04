@@ -126,6 +126,11 @@ class HeaderValues {
 public:
   const char* prefix() const { return ThreadSafeSingleton<PrefixValue>::get().prefix(); }
 
+  // tcloud 相关的一些配置
+  // tcloud-lane 泳道相关的配置
+  // sw3 为 skywalking 链路追踪在 header 中添加的 key
+  const LowerCaseString Sw3{"sw3"};
+  const LowerCaseString TcloudLane{"tcloud-lane"};
   const LowerCaseString ProxyAuthenticate{"proxy-authenticate"};
   const LowerCaseString ProxyAuthorization{"proxy-authorization"};
   const LowerCaseString ClientTraceId{"x-client-trace-id"};

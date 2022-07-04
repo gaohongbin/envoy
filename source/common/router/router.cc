@@ -603,6 +603,19 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   // Inject the active span's tracing context into the request headers.
   callbacks_->activeSpan().injectContext(headers);
 
+  // TODO
+  // 是不是可以在这里插入泳道相关的内容。
+  /**
+  * 在这里做测试, 先往 request 的 header 里面写入固定的泳道名称。 在测试没问题以后, 我们再实现真正的逻辑。
+  */
+  absl::string_view traceId = headers.getSw3Value();
+  ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw3 = {}", *callbacks_, traceId);
+  ENVOY_STREAM_LOG(debug, "tcloud router decoding headers:\n{}", *callbacks_, headers);
+
+  headers.setTcloudLane("dev1");
+  ENVOY_STREAM_LOG(debug, "tcloud router filter envoy set tcloud lane = dev1", *callbacks_);
+
+
   route_entry_->finalizeRequestHeaders(headers, callbacks_->streamInfo(),
                                        !config_.suppress_envoy_headers_);
   FilterUtility::setUpstreamScheme(headers,
