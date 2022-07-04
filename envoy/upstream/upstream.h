@@ -53,6 +53,7 @@ using HostHandlePtr = std::unique_ptr<HostHandle>;
  */
 class Host : virtual public HostDescription {
 public:
+  // 与上游 host 建立连接, 需要用到 ClientConnectionPtr
   struct CreateConnectionData {
     Network::ClientConnectionPtr connection_;
     HostDescriptionConstSharedPtr host_description_;
@@ -156,6 +157,7 @@ public:
      * should be preferred. A host may be marked as degraded either through EDS or through active
      * health checking.
      */
+     // 主机是健康的，但已降级。它能够为流量提供服务，但应首选未降级的主机。可以通过 EDS 或主动健康检查将主机标记为降级。
     Degraded,
     /**
      * Host is healthy and is able to serve traffic.
@@ -187,6 +189,7 @@ public:
    * @return the current load balancing weight of the host, in the range 1-128 (see
    * envoy.api.v2.endpoint.Endpoint.load_balancing_weight).
    */
+   // weight 范围在 1-128
   virtual uint32_t weight() const PURE;
 
   /**
@@ -231,6 +234,8 @@ using PriorityState = std::vector<std::pair<HostListPtr, LocalityWeightsMap>>;
 /**
  * Bucket hosts by locality.
  */
+ // 按 地区 存储主机
+ // 主要是区域间负载均衡使用
 class HostsPerLocality {
 public:
   virtual ~HostsPerLocality() = default;
@@ -287,6 +292,7 @@ public:
   /**
    * @return all hosts that make up the set at the current time.
    */
+   // 所有主机
   virtual const HostVector& hosts() const PURE;
 
   /**
@@ -300,6 +306,7 @@ public:
    *         unhealthy and calling healthy() on it will return false. Code should be written to
    *         deal with this case if it matters.
    */
+   // 所有健康的主机
   virtual const HostVector& healthyHosts() const PURE;
 
   /**
@@ -313,6 +320,7 @@ public:
    *         undegraded and calling degraded() on it will return false. Code should be written to
    *         deal with this case if it matters.
    */
+   // 所有被降级的主机
   virtual const HostVector& degradedHosts() const PURE;
 
   /**
@@ -324,6 +332,7 @@ public:
    * @return all excluded hosts contained in the set at the current time. Excluded hosts should be
    * ignored when computing load balancing weights, but may overlap with hosts in hosts().
    */
+  // 所有应该被忽略排除的主机
   virtual const HostVector& excludedHosts() const PURE;
 
   /**
@@ -334,6 +343,7 @@ public:
   /**
    * @return hosts per locality.
    */
+   // 每个 地区 的主机
   virtual const HostsPerLocality& hostsPerLocality() const PURE;
 
   /**
@@ -344,6 +354,7 @@ public:
   /**
    * @return same as hostsPerLocality but only contains healthy hosts.
    */
+   // 每个地区的健康主机
   virtual const HostsPerLocality& healthyHostsPerLocality() const PURE;
 
   /**
@@ -354,6 +365,7 @@ public:
   /**
    * @return same as hostsPerLocality but only contains degraded hosts.
    */
+   // 每个地区的被降级的主机
   virtual const HostsPerLocality& degradedHostsPerLocality() const PURE;
 
   /**
@@ -364,6 +376,7 @@ public:
   /**
    * @return same as hostsPerLocality but only contains excluded hosts.
    */
+   // 每个地区被排除忽略的主机
   virtual const HostsPerLocality& excludedHostsPerLocality() const PURE;
 
   /**
@@ -374,12 +387,14 @@ public:
   /**
    * @return weights for each locality in the host set.
    */
+   // 每个地区的每个主机权重
   virtual LocalityWeightsConstSharedPtr localityWeights() const PURE;
 
   /**
    * @return next locality index to route to if performing locality weighted balancing
    * against healthy hosts.
    */
+   // 选择一个 locality
   virtual absl::optional<uint32_t> chooseHealthyLocality() PURE;
 
   /**
@@ -391,11 +406,13 @@ public:
   /**
    * @return uint32_t the priority of this host set.
    */
+   // host set 的优先级
   virtual uint32_t priority() const PURE;
 
   /**
    * @return uint32_t the overprovisioning factor of this host set.
    */
+   // host set 的过度配置因子
   virtual uint32_t overprovisioningFactor() const PURE;
 };
 
@@ -405,6 +422,7 @@ using HostSetPtr = std::unique_ptr<HostSet>;
  * This class contains all of the HostSets for a given cluster grouped by priority, for
  * ease of load balancing.
  */
+ // 此类包含按优先级分组的给定集群的所有 HostSet，以便于负载平衡。
 class PrioritySet {
 public:
   using MemberUpdateCb =
@@ -441,6 +459,7 @@ public:
   /**
    * @return const std::vector<HostSetPtr>& the host sets, ordered by priority.
    */
+   // 每个 priority 对应一个 hostSet
   virtual const std::vector<HostSetPtr>& hostSetsPerPriority() const PURE;
 
   /**
@@ -714,6 +733,7 @@ using ClusterTimeoutBudgetStatsOptRef =
  *   NamedNetworkFilterConfigFactory::createProtocolOptions
  * must be derived from this class.
  */
+ // NamedNetworkFilterConfigFactory::createProtocolOptions 处的方法返回的所有扩展协议特定选项都必须派生自此类。
 class ProtocolOptionsConfig {
 public:
   virtual ~ProtocolOptionsConfig() = default;
@@ -762,16 +782,19 @@ public:
    * @return bool whether the cluster was added via API (if false the cluster was present in the
    *         initial configuration and cannot be removed or updated).
    */
+   // 集群是否通过 API 添加（如果为 false，则集群存在于初始配置中并且无法删除或更新）。
   virtual bool addedViaApi() const PURE;
 
   /**
    * @return the connect timeout for upstream hosts that belong to this cluster.
    */
+   // 属于该集群的上游主机的连接超时
   virtual std::chrono::milliseconds connectTimeout() const PURE;
 
   /**
    * @return the idle timeout for upstream connection pool connections.
    */
+   // 空闲超时时间 ？
   virtual const absl::optional<std::chrono::milliseconds> idleTimeout() const PURE;
 
   /**
@@ -852,11 +875,13 @@ public:
    * @return const envoy::config::cluster::v3::Cluster::CommonLbConfig& the common configuration for
    * all load balancers for this cluster.
    */
+   // lb 的通用配置
   virtual const envoy::config::cluster::v3::Cluster::CommonLbConfig& lbConfig() const PURE;
 
   /**
    * @return the type of load balancing that the cluster should use.
    */
+   // 负载均衡类型
   virtual LoadBalancerType lbType() const PURE;
 
   /**
@@ -879,18 +904,21 @@ public:
   /**
    * @return configuration for least request load balancing, only used if LB type is least request.
    */
+   // least request 负载均衡配置
   virtual const absl::optional<envoy::config::cluster::v3::Cluster::LeastRequestLbConfig>&
   lbLeastRequestConfig() const PURE;
 
   /**
    * @return configuration for ring hash load balancing, only used if type is set to ring_hash_lb.
    */
+   // ring hash 负载均衡配置
   virtual const absl::optional<envoy::config::cluster::v3::Cluster::RingHashLbConfig>&
   lbRingHashConfig() const PURE;
 
   /**
    * @return configuration for maglev load balancing, only used if type is set to maglev_lb.
    */
+   // maglev 负载均衡配置
   virtual const absl::optional<envoy::config::cluster::v3::Cluster::MaglevLbConfig>&
   lbMaglevConfig() const PURE;
 
@@ -899,6 +927,7 @@ public:
    * configuration for the Original Destination load balancing policy, only used if type is set to
    *         ORIGINAL_DST_LB.
    */
+   // 原始目标负载均衡
   virtual const absl::optional<envoy::config::cluster::v3::Cluster::OriginalDstLbConfig>&
   lbOriginalDstConfig() const PURE;
 
@@ -922,12 +951,16 @@ public:
    *         each upstream connection. This can be used to increase spread if the backends cannot
    *         tolerate imbalance. 0 indicates no maximum.
    */
+   // 每个 connection 限定的最大 outbound requests
+   // 0 表示没有限定
   virtual uint64_t maxRequestsPerConnection() const PURE;
 
   /**
    * @return uint32_t the maximum number of response headers. The default value is 100. Results in a
    * reset if the number of headers exceeds this value.
    */
+   // 响应标头的最大数量。默认值为 100。
+   //如果标头数量超过此值，则会导致重置。
   virtual uint32_t maxResponseHeadersCount() const PURE;
 
   /**
@@ -1017,18 +1050,21 @@ public:
    * @return whether to skip waiting for health checking before draining connections
    *         after a host is removed from service discovery.
    */
+   // host 被删除后, 删除 connection 前是否等待健康检查
   virtual bool drainConnectionsOnHostRemoval() const PURE;
 
   /**
    *  @return whether to create a new connection pool for each downstream connection routed to
    *          the cluster
    */
+   // 是否为路由到集群的每个下游连接创建一个新的连接池
   virtual bool connectionPoolPerDownstreamConnection() const PURE;
 
   /**
    * @return true if this cluster is configured to ignore hosts for the purpose of load balancing
    * computations until they have been health checked for the first time.
    */
+   // 健康检查完成后, 某个 host 才能被用来计算负载均衡, 此前, 该 host 被忽略
   virtual bool warmHosts() const PURE;
 
   /**
@@ -1044,6 +1080,7 @@ public:
   /**
    * Create network filters on a new upstream connection.
    */
+   // 为 upstream connection 创建网络过滤器
   virtual void createNetworkFilterChain(Network::Connection& connection) const PURE;
 
   /**
@@ -1120,6 +1157,7 @@ public:
    * @return a pointer to the cluster's outlier detector. If an outlier detector has not been
    *         installed, returns nullptr.
    */
+   // 异常检测器
   virtual Outlier::Detector* outlierDetector() PURE;
   virtual const Outlier::Detector* outlierDetector() const PURE;
 
@@ -1130,6 +1168,7 @@ public:
    *        time initialization. E.g., for a dynamic DNS cluster the initialize callback will be
    *        called when initial DNS resolution is complete.
    */
+   // 初始化集群。这将在创建时立即调用，或者在所有主集群都已初始化（通过 initializePhase() 确定）后调用。
   virtual void initialize(std::function<void()> callback) PURE;
 
   /**

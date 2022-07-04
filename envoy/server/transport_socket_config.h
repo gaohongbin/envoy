@@ -15,6 +15,7 @@
 #include "envoy/stats/scope.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "source/common/protobuf/protobuf.h"
 
@@ -104,6 +105,9 @@ public:
    * @return reference to the access log manager object
    */
   virtual AccessLog::AccessLogManager& accessLogManager() PURE;
+
+  // tcloud 泳道
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() PURE;
 };
 
 using TransportSocketFactoryContextPtr = std::unique_ptr<TransportSocketFactoryContext>;

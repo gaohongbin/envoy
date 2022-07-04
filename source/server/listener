@@ -1,0 +1,489 @@
+
+  {
+     "name": "10.0.64.5_8080",
+     "active_state": {
+      "version_info": "2023-01-31T08:29:34Z/537",
+      "listener": {
+       "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+       "name": "10.0.64.5_8080",
+       "address": {
+        "socket_address": {
+         "address": "10.0.64.5",
+         "port_value": 8080
+        }
+       },
+       "filter_chains": [
+        {
+         "filter_chain_match": {
+          "transport_protocol": "raw_buffer",
+          "application_protocols": [
+           "http/1.0",
+           "http/1.1",
+           "h2c"
+          ]
+         },
+         "filters": [
+          {
+           "name": "envoy.filters.network.http_connection_manager",
+           "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+            "stat_prefix": "outbound_10.0.64.5_8080",
+            "rds": {
+             "config_source": {
+              "ads": {},
+              "initial_fetch_timeout": "0s",
+              "resource_api_version": "V3"
+             },
+             "route_config_name": "guofucheng-service.datastar-web-ide-test.svc.cluster.local:8080"
+            },
+            "http_filters": [
+             {
+              "name": "istio.alpn",
+              "typed_config": {
+               "@type": "type.googleapis.com/istio.envoy.config.filter.http.alpn.v2alpha1.FilterConfig",
+               "alpn_override": [
+                {
+                 "alpn_override": [
+                  "istio-http/1.0",
+                  "istio",
+                  "http/1.0"
+                 ]
+                },
+                {
+                 "upstream_protocol": "HTTP11",
+                 "alpn_override": [
+                  "istio-http/1.1",
+                  "istio",
+                  "http/1.1"
+                 ]
+                },
+                {
+                 "upstream_protocol": "HTTP2",
+                 "alpn_override": [
+                  "istio-h2",
+                  "istio",
+                  "h2"
+                 ]
+                }
+               ]
+              }
+             },
+             {
+              "name": "envoy.filters.http.cors",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors"
+              }
+             },
+             {
+              "name": "envoy.filters.http.fault",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault"
+              }
+             },
+             {
+              "name": "envoy.filters.http.router",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+              }
+             }
+            ],
+            "tracing": {
+             "client_sampling": {
+              "value": 100
+             },
+             "random_sampling": {
+              "value": 1
+             },
+             "overall_sampling": {
+              "value": 100
+             },
+             "custom_tags": [
+              {
+               "tag": "istio.authorization.dry_run.allow_policy.name",
+               "metadata": {
+                "kind": {
+                 "request": {}
+                },
+                "metadata_key": {
+                 "key": "envoy.filters.http.rbac",
+                 "path": [
+                  {
+                   "key": "istio_dry_run_allow_shadow_effective_policy_id"
+                  }
+                 ]
+                }
+               }
+              },
+              {
+               "tag": "istio.authorization.dry_run.allow_policy.result",
+               "metadata": {
+                "kind": {
+                 "request": {}
+                },
+                "metadata_key": {
+                 "key": "envoy.filters.http.rbac",
+                 "path": [
+                  {
+                   "key": "istio_dry_run_allow_shadow_engine_result"
+                  }
+                 ]
+                }
+               }
+              },
+              {
+               "tag": "istio.authorization.dry_run.deny_policy.name",
+               "metadata": {
+                "kind": {
+                 "request": {}
+                },
+                "metadata_key": {
+                 "key": "envoy.filters.http.rbac",
+                 "path": [
+                  {
+                   "key": "istio_dry_run_deny_shadow_effective_policy_id"
+                  }
+                 ]
+                }
+               }
+              },
+              {
+               "tag": "istio.authorization.dry_run.deny_policy.result",
+               "metadata": {
+                "kind": {
+                 "request": {}
+                },
+                "metadata_key": {
+                 "key": "envoy.filters.http.rbac",
+                 "path": [
+                  {
+                   "key": "istio_dry_run_deny_shadow_engine_result"
+                  }
+                 ]
+                }
+               }
+              },
+              {
+               "tag": "istio.canonical_revision",
+               "environment": {
+                "name": "CANONICAL_REVISION",
+                "default_value": "latest"
+               }
+              },
+              {
+               "tag": "istio.canonical_service",
+               "environment": {
+                "name": "CANONICAL_SERVICE",
+                "default_value": "unknown"
+               }
+              },
+              {
+               "tag": "istio.mesh_id",
+               "environment": {
+                "name": "ISTIO_META_MESH_ID",
+                "default_value": "unknown"
+               }
+              },
+              {
+               "tag": "istio.namespace",
+               "environment": {
+                "name": "POD_NAMESPACE",
+                "default_value": "default"
+               }
+              }
+             ]
+            },
+            "http_protocol_options": {
+             "accept_http_10": true
+            },
+            "access_log": [
+             {
+              "name": "envoy.access_loggers.http_grpc",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.access_loggers.grpc.v3.HttpGrpcAccessLogConfig",
+               "common_config": {
+                "log_name": "http_envoy_accesslog",
+                "grpc_service": {
+                 "envoy_grpc": {
+                  "cluster_name": "envoy_accesslog_service"
+                 }
+                },
+                "filter_state_objects_to_log": [
+                 "wasm.upstream_peer",
+                 "wasm.upstream_peer_id",
+                 "wasm.downstream_peer",
+                 "wasm.downstream_peer_id"
+                ],
+                "transport_api_version": "V3"
+               }
+              }
+             }
+            ],
+            "use_remote_address": false,
+            "upgrade_configs": [
+             {
+              "upgrade_type": "websocket"
+             }
+            ],
+            "stream_idle_timeout": "0s",
+            "normalize_path": true,
+            "path_with_escaped_slashes_action": "KEEP_UNCHANGED"
+           }
+          }
+         ]
+        }
+       ],
+       "deprecated_v1": {
+        "bind_to_port": false
+       },
+       "listener_filters": [
+        {
+         "name": "envoy.filters.listener.tls_inspector",
+         "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector"
+         }
+        },
+        {
+         "name": "envoy.filters.listener.http_inspector",
+         "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.filters.listener.http_inspector.v3.HttpInspector"
+         }
+        }
+       ],
+       "listener_filters_timeout": "0s",
+       "traffic_direction": "OUTBOUND",
+       "continue_on_listener_filters_timeout": true,
+       "access_log": [
+        {
+         "name": "envoy.tcp_grpc_access_log",
+         "filter": {
+          "response_flag_filter": {
+           "flags": [
+            "NR"
+           ]
+          }
+         },
+         "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.access_loggers.grpc.v3.TcpGrpcAccessLogConfig",
+          "common_config": {
+           "log_name": "listener_envoy_accesslog",
+           "grpc_service": {
+            "envoy_grpc": {
+             "cluster_name": "envoy_accesslog_service"
+            }
+           },
+           "filter_state_objects_to_log": [
+            "wasm.upstream_peer",
+            "wasm.upstream_peer_id",
+            "wasm.downstream_peer",
+            "wasm.downstream_peer_id"
+           ],
+           "transport_api_version": "V3"
+          }
+         }
+        }
+       ],
+       "default_filter_chain": {
+        "filters": [
+         {
+          "name": "envoy.filters.network.tcp_proxy",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy",
+           "stat_prefix": "outbound|8080||guofucheng-service.datastar-web-ide-test.svc.cluster.local",
+           "cluster": "outbound|8080||guofucheng-service.datastar-web-ide-test.svc.cluster.local",
+           "access_log": [
+            {
+             "name": "envoy.tcp_grpc_access_log",
+             "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.grpc.v3.TcpGrpcAccessLogConfig",
+              "common_config": {
+               "log_name": "tcp_envoy_accesslog",
+               "grpc_service": {
+                "envoy_grpc": {
+                 "cluster_name": "envoy_accesslog_service"
+                }
+               },
+               "filter_state_objects_to_log": [
+                "wasm.upstream_peer",
+                "wasm.upstream_peer_id",
+                "wasm.downstream_peer",
+                "wasm.downstream_peer_id"
+               ],
+               "transport_api_version": "V3"
+              }
+             }
+            }
+           ]
+          }
+         }
+        ]
+       }
+      },
+      "last_updated": "2023-01-31T08:36:34.466Z"
+     }
+    }
+
+
+
+
+
+
+
+
+
+
+{
+	"@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+	"stat_prefix": "outbound_10.0.64.5_8080",
+	"http_filters": [{
+		"name": "istio.alpn",
+		"typed_config": {
+			"@type": "type.googleapis.com/istio.envoy.config.filter.http.alpn.v2alpha1.FilterConfig",
+			"alpn_override": [{
+				"alpn_override": ["istio-http/1.0", "istio", "http/1.0"]
+			}, {
+				"upstream_protocol": "HTTP11",
+				"alpn_override": ["istio-http/1.1", "istio", "http/1.1"]
+			}, {
+				"upstream_protocol": "HTTP2",
+				"alpn_override": ["istio-h2", "istio", "h2"]
+			}]
+		}
+	}, {
+		"name": "envoy.filters.http.cors",
+		"typed_config": {
+			"@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors"
+		}
+	}, {
+		"name": "envoy.filters.http.fault",
+		"typed_config": {
+			"@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault"
+		}
+	}, {
+		"name": "envoy.filters.http.router",
+		"typed_config": {
+			"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+		}
+	}],
+	"tracing": {
+		"client_sampling": {
+			"value": 100
+		},
+		"random_sampling": {
+			"value": 1
+		},
+		"overall_sampling": {
+			"value": 100
+		},
+		"custom_tags": [{
+			"tag": "istio.authorization.dry_run.allow_policy.name",
+			"metadata": {
+				"kind": {
+					"request": {}
+				},
+				"metadata_key": {
+					"key": "envoy.filters.http.rbac",
+					"path": [{
+						"key": "istio_dry_run_allow_shadow_effective_policy_id"
+					}]
+				}
+			}
+		}, {
+			"tag": "istio.authorization.dry_run.allow_policy.result",
+			"metadata": {
+				"kind": {
+					"request": {}
+				},
+				"metadata_key": {
+					"key": "envoy.filters.http.rbac",
+					"path": [{
+						"key": "istio_dry_run_allow_shadow_engine_result"
+					}]
+				}
+			}
+		}, {
+			"tag": "istio.authorization.dry_run.deny_policy.name",
+			"metadata": {
+				"kind": {
+					"request": {}
+				},
+				"metadata_key": {
+					"key": "envoy.filters.http.rbac",
+					"path": [{
+						"key": "istio_dry_run_deny_shadow_effective_policy_id"
+					}]
+				}
+			}
+		}, {
+			"tag": "istio.authorization.dry_run.deny_policy.result",
+			"metadata": {
+				"kind": {
+					"request": {}
+				},
+				"metadata_key": {
+					"key": "envoy.filters.http.rbac",
+					"path": [{
+						"key": "istio_dry_run_deny_shadow_engine_result"
+					}]
+				}
+			}
+		}, {
+			"tag": "istio.canonical_revision",
+			"environment": {
+				"name": "CANONICAL_REVISION",
+				"default_value": "latest"
+			}
+		}, {
+			"tag": "istio.canonical_service",
+			"environment": {
+				"name": "CANONICAL_SERVICE",
+				"default_value": "unknown"
+			}
+		}, {
+			"tag": "istio.mesh_id",
+			"environment": {
+				"name": "ISTIO_META_MESH_ID",
+				"default_value": "unknown"
+			}
+		}, {
+			"tag": "istio.namespace",
+			"environment": {
+				"name": "POD_NAMESPACE",
+				"default_value": "default"
+			}
+		}]
+	},
+	"http_protocol_options": {
+		"accept_http_10": true
+	},
+	"access_log": [{
+		"name": "envoy.access_loggers.http_grpc",
+		"typed_config": {
+			"@type": "type.googleapis.com/envoy.extensions.access_loggers.grpc.v3.HttpGrpcAccessLogConfig",
+			"common_config": {
+				"log_name": "http_envoy_accesslog",
+				"grpc_service": {
+					"envoy_grpc": {
+						"cluster_name": "envoy_accesslog_service"
+					}
+				},
+				"filter_state_objects_to_log": ["wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"],
+				"transport_api_version": "V3"
+			}
+		}
+	}],
+	"use_remote_address": false,
+	"upgrade_configs": [{
+		"upgrade_type": "websocket"
+	}],
+	"stream_idle_timeout": "0s",
+	"normalize_path": true,
+	"path_with_escaped_slashes_action": "KEEP_UNCHANGED",
+	"rds": {
+		"config_source": {
+			"initial_fetch_timeout": "0s",
+			"resource_api_version": "V3",
+			"ads": {}
+		},
+		"route_config_name": "guofucheng-service.datastar-web-ide-test.svc.cluster.local:8080"
+	}
+}

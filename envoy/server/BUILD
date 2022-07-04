@@ -139,6 +139,7 @@ envoy_cc_library(
         "//envoy/thread_local:thread_local_interface",
         "//envoy/tracing:http_tracer_interface",
         "//envoy/upstream:cluster_manager_interface",
+        "//envoy/tcloud:tcloud_map_interface",
         "@envoy_api//envoy/config/trace/v3:pkg_cc_proto",
     ],
 )
@@ -200,6 +201,7 @@ envoy_cc_library(
         "//envoy/thread_local:thread_local_interface",
         "//envoy/tracing:http_tracer_interface",
         "//envoy/upstream:cluster_manager_interface",
+        "//envoy/tcloud:tcloud_map_interface",
         "//source/common/common:assert_lib",
         "//source/common/common:macros",
         "//source/common/protobuf",
@@ -282,6 +284,7 @@ envoy_cc_library(
         "//envoy/stats:stats_interface",
         "//envoy/thread_local:thread_local_interface",
         "//envoy/upstream:cluster_manager_interface",
+        "//envoy/tcloud:tcloud_map_interface",
         "//source/common/protobuf",
         "@envoy_api//envoy/config/core/v3:pkg_cc_proto",
     ],

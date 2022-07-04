@@ -17,6 +17,8 @@ class ConnectionLifetimeCallbacks;
 } // namespace Http
 namespace Upstream {
 
+// router 只是选择了上游集群,
+// 而真正选择上游实例是通过 LoadBalancer 来选择。
 /**
  * Context information passed to a load balancer to use when choosing a host. Not all load
  * balancers make use of all context information.

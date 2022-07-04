@@ -16,9 +16,12 @@ namespace Server {
 
 WorkerPtr ProdWorkerFactory::createWorker(uint32_t index, OverloadManager& overload_manager,
                                           const std::string& worker_name) {
+  // 每个 worker 创建一个 dispatcher
   Event::DispatcherPtr dispatcher(
       api_.allocateDispatcher(worker_name, overload_manager.scaledTimerFactory()));
+  // 同时初始化一个新的 ConnectionHandlerImpl
   auto conn_handler = std::make_unique<ConnectionHandlerImpl>(*dispatcher, index);
+  // 所以每个 worker 里面的 dispatcher 和 conn_handler 都是独立的。
   return std::make_unique<WorkerImpl>(tls_, hooks_, std::move(dispatcher), std::move(conn_handler),
                                       overload_manager, api_, stat_names_);
 }
@@ -42,6 +45,7 @@ WorkerImpl::WorkerImpl(ThreadLocal::Instance& tls, ListenerHooks& hooks,
       [this](OverloadActionState state) { resetStreamsUsingExcessiveMemory(state); });
 }
 
+// woeker addListener 本质是 handler_->addListener
 void WorkerImpl::addListener(absl::optional<uint64_t> overridden_listener,
                              Network::ListenerConfig& listener, AddListenerCompletion completion,
                              Runtime::Loader& runtime) {

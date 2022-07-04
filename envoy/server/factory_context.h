@@ -30,6 +30,7 @@
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/tracing/http_tracer.h"
 #include "envoy/upstream/cluster_manager.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "source/common/common/assert.h"
 #include "source/common/common/macros.h"
@@ -211,6 +212,7 @@ public:
  * TODO(mattklein123): When we lock down visibility of the rest of the code, filters should only
  * access the rest of the server via interfaces exposed here.
  */
+// 将 server 中的一些资源通过 FactoryContext 透传给 network 和 http filters。
 class FactoryContext : public virtual ListenerAccessLogFactoryContext {
 public:
   ~FactoryContext() override = default;
@@ -272,6 +274,18 @@ public:
    * @return Router::Context& a reference to the router context.
    */
   virtual Router::Context& routerContext() PURE;
+
+//  /**
+//   * @return ProcessContextOptRef an optional reference to the
+//   * process context. Will be unset when running in validation mode.
+//   */
+//  virtual ProcessContextOptRef processContext() PURE;
+
+  /**
+  *
+  * @return TcloudMap 用来实现泳道功能, 需要通过 FactoryContext 传给 ConnectionManagerImpl 用来初始化。
+  */
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() PURE;
 };
 
 /**

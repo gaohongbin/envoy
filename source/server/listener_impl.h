@@ -153,6 +153,9 @@ public:
   Stats::Scope& listenerScope() override;
   bool isQuicListener() const override;
 
+  // tcloud
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override;
+
   // DrainDecision
   bool drainClose() const override {
     return drain_manager_->drainClose() || server_.drainManager().drainClose();
@@ -231,6 +234,8 @@ public:
   Stats::Scope& listenerScope() override;
   bool isQuicListener() const override;
 
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override;
+
   // ListenerFactoryContext
   const Network::ListenerConfig& listenerConfig() const override;
 
@@ -246,6 +251,8 @@ private:
 /**
  * Maps proto config to runtime config for a listener with a network filter chain.
  */
+// listener 的实现类，每个 listener 中包含一个 filter_chain_manager , 管理着这个 listener 所对应的  filterChain。
+// 其实我觉得实现最奇妙的是 filterChainConfigFactory, 每个类都会将自己注册到 registerFactory 上面, 然后 lister 实例化时再从里面获取相应的工厂类。
 class ListenerImpl final : public Network::ListenerConfig,
                            public Network::FilterChainFactory,
                            Logger::Loggable<Logger::Id::config> {
@@ -492,6 +499,10 @@ private:
   // The key is the address string, the value is the address specific connection balancer.
   // TODO (soulxu): Add hash support for address, then needn't a string address as key anymore.
   absl::flat_hash_map<std::string, Network::ConnectionBalancerSharedPtr> connection_balancers_;
+//  std::unique_ptr<UdpListenerConfigImpl> udp_listener_config_;
+//  // ConnectionBalancer 如果有多个 worker 也即有多个 ConnectionHandler 时， 当有新的请求到来时需要将请求分发给不同的 ConnectionHandler
+//  // 该逻辑由 ConnectionBalancer 实现。
+//  Network::ConnectionBalancerSharedPtr connection_balancer_;
   std::shared_ptr<PerListenerFactoryContextImpl> listener_factory_context_;
   std::unique_ptr<FilterChainManagerImpl> filter_chain_manager_;
   const bool reuse_port_;

@@ -26,6 +26,10 @@ class ConnectionManager;
  * ActiveMessage represents an in-flight request from downstream that has not yet received response
  * from upstream.
  */
+// ActiveMessage 表示来自下游但尚未收到来自上游的响应的正在进行的请求。
+// 它包含了多个结构体: connection_manager_, request, response, metadata_, router_
+// 我感觉这个 ActiveMessage 可以对应到 http 的 activeStream。
+// 这个结构体非常的关键, 需要仔细阅读其代码
 class ActiveMessage : public LinkedObject<ActiveMessage>,
                       public Event::DeferredDeletable,
                       Logger::Loggable<Logger::Id::rocketmq> {
@@ -38,6 +42,7 @@ public:
    * Set up filter-chain according to configuration from bootstrap config file and dynamic
    * configuration items from Pilot.
    */
+   // 生成 network filterChain
   void createFilterChain();
 
   /**
@@ -46,8 +51,11 @@ public:
    * ClusterUpdateCallback will process requests marked await-cluster once the target cluster is
    * in place.
    */
+   // 将请求从下游发送到上游集群。如果此时目标集群不存在，则触发集群发现服务请求，并将awaitCluster标记为true。
+   // 一旦目标集群就位，ClusterUpdateCallback 将处理标记为 await-cluster 的请求。
   void sendRequestToUpstream();
 
+  // 获取 request, 直接返回 request_ 即可。
   const RemotingCommandPtr& downstreamRequest() const;
 
   /**
@@ -58,10 +66,13 @@ public:
    * @param topic Topic from which messages are popped
    * @param directive ack route directive
    */
+   // 解析 pop 响应并插入 ack 路由指令，这样 ack 请求将被转发到弹出消息的同一代理主机。
+   // POP 是 RocketMQ 5.0 新增的消费模式
   virtual void fillAckMessageDirective(Buffer::Instance& buffer, const std::string& group,
                                        const std::string& topic,
                                        const AckMessageDirective& directive);
 
+  // 将 response 发送给下游
   virtual void sendResponseToDownstream();
 
   void onQueryTopicRoute();

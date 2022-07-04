@@ -39,6 +39,7 @@ TimerPtr LibeventScheduler::createTimer(const TimerCb& cb, Dispatcher& dispatche
   return std::make_unique<TimerImpl>(libevent_, cb, dispatcher);
 };
 
+// 生成一个 SchedulableCallback
 SchedulableCallbackPtr
 LibeventScheduler::createSchedulableCallback(const std::function<void()>& cb) {
   return std::make_unique<SchedulableCallbackImpl>(libevent_, cb);
@@ -57,6 +58,9 @@ void LibeventScheduler::run(Dispatcher::RunType mode) {
     flag = EVLOOP_NO_EXIT_ON_EMPTY;
     break;
   }
+  // 默认情况下,event_base_loop()函数运行 event_base 直到其中没有已经注册的事件为止。
+  // 执行循环的时候 ,函数重复地检查是否有任何已经注册的事件被触发 (比如说,读事件 的文件描述符已经就绪,可以读取了;或者超时事件的超时时间即将到达 )。
+  // 如果有事件被触发,函数标记被触发的事件为 “激活的”,并且执行这些事件。
   event_base_loop(libevent_.get(), flag);
 }
 

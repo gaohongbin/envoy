@@ -84,6 +84,7 @@ private:
  * Implementation of AsyncRequest. This implementation is capable of sending HTTP requests to a
  * ConnectionPool asynchronously.
  */
+// 异步请求的实现。此实现能够将 HTTP 请求异步发送到 ConnectionPool。
 class AsyncStreamImpl : public AsyncClient::Stream,
                         public StreamDecoderFilterCallbacks,
                         public Event::DeferredDeletable,

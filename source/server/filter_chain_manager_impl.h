@@ -14,6 +14,7 @@
 #include "envoy/server/options.h"
 #include "envoy/server/transport_socket_config.h"
 #include "envoy/thread_local/thread_local.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "source/common/common/logger.h"
 #include "source/common/init/manager_impl.h"
@@ -87,6 +88,9 @@ public:
   Configuration::TransportSocketFactoryContext& getTransportSocketFactoryContext() const override;
   Stats::Scope& listenerScope() override;
   bool isQuicListener() const override;
+
+  // tcloud
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override { return parent_context_.getTcloudMap(); };
 
   void startDraining() override { is_draining_.store(true); }
 
@@ -179,6 +183,9 @@ public:
   Network::DrainDecision& drainDecision() override;
   Stats::Scope& listenerScope() override;
   bool isQuicListener() const override;
+
+  // tcloud
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override { return server_.getTcloudMap(); };
 
 private:
   Server::Instance& server_;

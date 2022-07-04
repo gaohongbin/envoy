@@ -16,14 +16,17 @@ bool FramedTransportImpl::decodeFrameStart(Buffer::Instance& buffer, MessageMeta
     return false;
   }
 
+  // 有获取一遍 thrift 的 frame 的 size
   int32_t thrift_size = buffer.peekBEInt<int32_t>();
 
   if (thrift_size <= 0 || thrift_size > MaxFrameSize) {
     throw EnvoyException(absl::StrCat("invalid thrift framed transport frame size ", thrift_size));
   }
 
+  // 删除 4 字节的 length
   buffer.drain(4);
 
+  // 将 size 存储到 metadata 里面
   metadata.setFrameSize(static_cast<uint32_t>(thrift_size));
   return true;
 }

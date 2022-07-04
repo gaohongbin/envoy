@@ -90,7 +90,8 @@ ConnectionManagerImpl::ConnectionManagerImpl(ConnectionManagerConfig& config,
                                              const LocalInfo::LocalInfo& local_info,
                                              Upstream::ClusterManager& cluster_manager,
                                              Server::OverloadManager& overload_manager,
-                                             TimeSource& time_source)
+                                             TimeSource& time_source,
+                                             std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map)
     : config_(config), stats_(config_.stats()),
       conn_length_(new Stats::HistogramCompletableTimespanImpl(
           stats_.named_.downstream_cx_length_ms_, time_source)),
@@ -106,7 +107,19 @@ ConnectionManagerImpl::ConnectionManagerImpl(ConnectionManagerConfig& config,
       time_source_(time_source), proxy_name_(StreamInfo::ProxyStatusUtils::makeProxyName(
                                      /*node_id=*/local_info_.node().id(),
                                      /*server_name=*/config_.serverName(),
-                                     /*proxy_status_config=*/config_.proxyStatusConfig())) {}
+                                     /*proxy_status_config=*/config_.proxyStatusConfig())), tcloud_map_(tcloud_map) {
+  if (tcloud_map) {
+    ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map is not null");
+  } else {
+    ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map is null");
+  }
+
+  if (tcloud_map_) {
+    ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map_ is not null");
+  } else {
+    ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map_ is null");
+  }
+}
 
 const ResponseHeaderMap& ConnectionManagerImpl::continueHeader() {
   static const auto headers = createHeaderMap<ResponseHeaderMapImpl>(
@@ -296,6 +309,8 @@ void ConnectionManagerImpl::doDeferredStreamDestroy(ActiveStream& stream) {
   }
 }
 
+// 一个 connection 可以同时管理多个 stream
+// 因为 ConnectionManagerImpl 继承了 ServerConnectionCallbacks, 这个方法就是 ServerConnectionCallbacks 的回调方法, 当有新的 request 到达时调用
 RequestDecoder& ConnectionManagerImpl::newStream(ResponseEncoder& response_encoder,
                                                  bool is_internally_created) {
   TRACE_EVENT("core", "ConnectionManagerImpl::newStream");
@@ -316,8 +331,19 @@ RequestDecoder& ConnectionManagerImpl::newStream(ResponseEncoder& response_encod
     response_encoder.getStream().setAccount(downstream_stream_account);
   }
 
+  if (tcloud_map_) {
+      ENVOY_CONN_LOG(debug, "tcloud ConnectionManagerImpl::newStream tcloud_map_ is not null", read_callbacks_->connection());
+  } else {
+      ENVOY_CONN_LOG(debug, "tcloud ConnectionManagerImpl::newStream tcloud_map_ is null", read_callbacks_->connection());
+  }
   ActiveStreamPtr new_stream(new ActiveStream(*this, response_encoder.getStream().bufferLimit(),
                                               std::move(downstream_stream_account)));
+
+  if (new_stream->connection_manager_.getTcloudMap()) {
+      ENVOY_CONN_LOG(debug, "tcloud new_stream->connection_manager_.getTcloudMap() tcloud_map_ is not null", read_callbacks_->connection());
+  } else {
+      ENVOY_CONN_LOG(debug, "tcloud new_stream->connection_manager_.getTcloudMap() tcloud_map_ is null", read_callbacks_->connection());
+  }
 
   accumulated_requests_++;
   if (config_.maxRequestsPerConnection() > 0 &&
@@ -346,6 +372,7 @@ RequestDecoder& ConnectionManagerImpl::newStream(ResponseEncoder& response_encod
   return **streams_.begin();
 }
 
+
 void ConnectionManagerImpl::handleCodecError(absl::string_view error) {
   ENVOY_CONN_LOG(debug, "dispatch error: {}", read_callbacks_->connection(), error);
   read_callbacks_->connection().streamInfo().setResponseFlag(
@@ -358,6 +385,7 @@ void ConnectionManagerImpl::handleCodecError(absl::string_view error) {
                     absl::StrCat("codec_error:", StringUtil::replaceAllEmptySpace(error)));
 }
 
+// 根据 config 生成编解码器
 void ConnectionManagerImpl::createCodec(Buffer::Instance& data) {
   ASSERT(!codec_);
   codec_ = config_.createCodec(read_callbacks_->connection(), data, *this);
@@ -379,6 +407,7 @@ void ConnectionManagerImpl::createCodec(Buffer::Instance& data) {
   }
 }
 
+// onData 数据到达时,
 Network::FilterStatus ConnectionManagerImpl::onData(Buffer::Instance& data, bool) {
   if (!codec_) {
     // Http3 codec should have been instantiated by now.
@@ -649,6 +678,7 @@ ConnectionManagerImpl::ActiveStream::ActiveStream(ConnectionManagerImpl& connect
                                                   Buffer::BufferMemoryAccountSharedPtr account)
     : connection_manager_(connection_manager),
       stream_id_(connection_manager.random_generator_.random()),
+      // 卧槽, filter_manager_ 是每个 ActiveStream 一个呀。
       filter_manager_(*this, connection_manager_.read_callbacks_->connection().dispatcher(),
                       connection_manager_.read_callbacks_->connection(), stream_id_,
                       std::move(account), connection_manager_.config_.proxy100Continue(),
@@ -656,7 +686,8 @@ ConnectionManagerImpl::ActiveStream::ActiveStream(ConnectionManagerImpl& connect
                       connection_manager_.config_.localReply(),
                       connection_manager_.codec_->protocol(), connection_manager_.timeSource(),
                       connection_manager_.read_callbacks_->connection().streamInfo().filterState(),
-                      StreamInfo::FilterState::LifeSpan::Connection),
+                      StreamInfo::FilterState::LifeSpan::Connection,
+                      connection_manager_.getTcloudMap()),
       request_response_timespan_(new Stats::HistogramCompletableTimespanImpl(
           connection_manager_.stats_.named_.downstream_rq_time_, connection_manager_.timeSource())),
       header_validator_(connection_manager.config_.makeHeaderValidator(
@@ -931,11 +962,83 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   ScopeTrackerScopeState scope(this,
                                connection_manager_.read_callbacks_->connection().dispatcher());
   request_headers_ = std::move(headers);
+
+  // ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders tcloud_map_ 指针 {}", *this, connection_manager_.getTcloudMap());
+  // tcloud 泳道
+ if (connection_manager_.getTcloudMap() && !request_headers_->getSw8Value().empty()) {
+   // 对 sw8 的值进行切割
+   std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(request_headers_->getSw8Value()), '-');
+    if (request_headers_->getTcloudLaneValue().empty() && sw8Spilts.size() >= 2) {
+     std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(sw8Spilts[1]);
+     if (!tcloudLane.empty()) {
+      request_headers_->setTcloudLane(tcloudLane);
+      ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n",
+                      *this, sw8Spilts[1], tcloudLane);
+      ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
+     }
+   }
+  }
+
+  // tcloud 泳道, 这里为了兼容公司内部 trace
+  if (connection_manager_.getTcloudMap() && !request_headers_->getTwlSpanContextValue().empty()) {
+    // 对 twl-span-context 进行切割
+    std::vector<std::string> twlSpanSpilts = absl::StrSplit(std::string(request_headers_->getTwlSpanContextValue()), ':');
+    if (request_headers_->getTcloudLaneValue().empty() && twlSpanSpilts.size() >= 1) {
+      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(twlSpanSpilts[0]);
+      if (!tcloudLane.empty()) {
+        request_headers_->setTcloudLane(tcloudLane);
+        ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n",
+                         *this, twlSpanSpilts[0], tcloudLane);
+        ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
+      }
+    }
+  }
+
+  // tcloud 泳道, 如果用户手动插入了一个 traceId
+  if (connection_manager_.getTcloudMap() && !request_headers_->getTraceIdValue().empty()) {
+    if (request_headers_->getTcloudLaneValue().empty()) {
+      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(std::string(request_headers_->getTraceIdValue()));
+      if (!tcloudLane.empty()) {
+        request_headers_->setTcloudLane(tcloudLane);
+        ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n",
+                         *this, request_headers_->getTraceIdValue(), tcloudLane);
+        ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
+      }
+    }
+  }
+
+  // 如果到这里还没有 tcloud-lane, 则直接插入默认 tcloud-lane
+  if (connection_manager_.getTcloudMap() && request_headers_->getTcloudLaneValue().empty()) {
+    std::string defaultTcloudLane = connection_manager_.getTcloudMap()->getDefaultValue();
+    request_headers_->setTcloudLane(defaultTcloudLane);
+    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is not null ,插入了默认泳道", *this);
+  }
+
+
   filter_manager_.requestHeadersInitialized();
   if (request_header_timer_ != nullptr) {
     request_header_timer_->disableTimer();
     request_header_timer_.reset();
   }
+
+  // 这里的 read_callbacks_->upstreamHost() 本质上是获取的 filter_manager 的 host_description_
+//  Upstream::HostDescriptionConstSharedPtr upstream_host =
+//      connection_manager_.read_callbacks_->upstreamHost();
+//
+//  // 打日志知道 upstream_host 为 null, 下面的日志打印不出来。
+//  if (upstream_host != nullptr) {
+//    ENVOY_STREAM_LOG(debug, "tcloud upstream_host hostname = {}", *this, upstream_host->hostname());
+//  }
+//
+//  // 这里会做一些上下游流量数据的统计
+//  // 在 envoy 中 req 方叫 upstream ?
+//  if (upstream_host != nullptr) {
+//    Upstream::ClusterRequestResponseSizeStatsOptRef req_resp_stats =
+//        upstream_host->cluster().requestResponseSizeStats();
+//    if (req_resp_stats.has_value()) {
+//      req_resp_stats->get().upstream_rq_headers_size_.recordValue(request_headers_->byteSize());
+//    }
+//  }
 
   // Both saw_connection_close_ and is_head_request_ affect local replies: set
   // them as early as possible.
@@ -951,6 +1054,9 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   }
 
   // We need to snap snapped_route_config_ here as it's used in mutateRequestHeaders later.
+  // 这里是初始化 routes 的一些配置, scoped_routes_config 就是对应的 SRDS,
+  // snapped_route_config_ 对应的就是 RDS。
+  // 我们目前实际使用中，并没有使用 SRDS, 只使用了 RDS.
   if (connection_manager_.config_.isRoutable()) {
     if (connection_manager_.config_.routeConfigProvider() != nullptr) {
       snapped_route_config_ = connection_manager_.config_.routeConfigProvider()->configCast();
@@ -964,6 +1070,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   }
 
   // Drop new requests when overloaded as soon as we have decoded the headers.
+  // 一旦发现过载, 直接在解析完 req header 就直接丢弃。不进行后续的处理。
   if (connection_manager_.random_generator_.bernoulli(
           connection_manager_.overload_stop_accepting_requests_ref_.value())) {
     // In this one special case, do not create the filter chain. If there is a risk of memory
@@ -986,6 +1093,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
             absl::EqualsIgnoreCase(request_expect, Headers::get().ExpectValues._100Continue));
   };
 
+  // 处理 http 100-continue 这种特殊情况, 具体可以搜索 http 100-continue 了解详情
   if (!connection_manager_.config_.proxy100Continue() && request_headers_->Expect() &&
       is100Continue(request_headers_->Expect()->value().getStringView())) {
     // Note in the case Envoy is handling 100-Continue complexity, it skips the filter chain
@@ -996,17 +1104,20 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
     request_headers_->removeExpect();
   }
 
+  // TODO 这里后面细看一下, 是不是这里以后就不允许改变了
   connection_manager_.user_agent_.initializeFromHeaders(*request_headers_,
                                                         connection_manager_.stats_.prefixStatName(),
                                                         connection_manager_.stats_.scope_);
 
   // Make sure we are getting a codec version we support.
+  // 针对 http 1.0 单独做的两个特殊处理。
   if (protocol == Protocol::Http10) {
     // Assume this is HTTP/1.0. This is fine for HTTP/0.9 but this code will also affect any
     // requests with non-standard version numbers (0.9, 1.3), basically anything which is not
     // HTTP/1.1.
     //
     // The protocol may have shifted in the HTTP/1.0 case so reset it.
+    // 这里是判断 config 是不是不对 http 1.0 进行处理, 如果配置了不对 1.0 进行处理, 则直接 sendLocalReply
     filter_manager_.streamInfo().protocol(protocol);
     if (!connection_manager_.config_.http1Settings().accept_http_10_) {
       // Send "Upgrade Required" if HTTP/1.0 support is not explicitly configured on.
@@ -1014,6 +1125,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
                      StreamInfo::ResponseCodeDetails::get().LowVersion);
       return;
     }
+    // config 配置中是不是有针对 http 1.0 默认的请求 host 配置, 如果有则直接 setHost
     if (!request_headers_->Host() &&
         !connection_manager_.config_.http1Settings().default_host_for_http_10_.empty()) {
       // Add a default host if configured to do so.
@@ -1022,6 +1134,8 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
     }
   }
 
+  // 判断请求是不是有问题
+  // 举个例子, http 1.1 中有  ':authority', 'gaohongbin-test.kanzhun.tech'
   if (!request_headers_->Host()) {
     // Require host header. For HTTP/1.1 Host has already been translated to :authority.
     sendLocalReply(Code::BadRequest, "", nullptr, absl::nullopt,
@@ -1044,6 +1158,8 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   // :path header for CONNECT requests. We expect the codec to have broken the path into pieces if
   // applicable. NOTE: Currently the HTTP/1.1 codec only does this when the allow_absolute_url flag
   // is enabled on the HCM.
+  // 检查非 CONNECT 请求的 :path 标头是否存在，或 CONNECT 请求的 :path 标头是否存在但为空。如果适用，我们希望编解码器将路径分成几部分。注意：目前 HTTP/1.1 编解码器仅在 HCM 上启用 allow_absolute_url 标志时才执行此操作。
+  // 这里也是对 http 请求的一种校验。
   if ((!HeaderUtility::isConnect(*request_headers_) || request_headers_->Path()) &&
       request_headers_->getPathValue().empty()) {
     sendLocalReply(Code::NotFound, "", nullptr, absl::nullopt,
@@ -1052,6 +1168,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   }
 
   // Currently we only support relative paths at the application layer.
+  // 还是校验, 目前只支持应用层的相对路径。 如果 path 不是以 '/' 开头, 则直接 sendLocalReply
   if (!request_headers_->getPathValue().empty() && request_headers_->getPathValue()[0] != '/') {
     connection_manager_.stats_.named_.downstream_rq_non_relative_path_.inc();
     sendLocalReply(Code::NotFound, "", nullptr, absl::nullopt,
@@ -1060,6 +1177,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   }
 
   // Path sanitization should happen before any path access other than the above sanity check.
+  // 除上述健全性检查外，路径清理应在任何路径访问之前进行。
   const auto action =
       ConnectionManagerUtility::maybeNormalizePath(*request_headers_, connection_manager_.config_);
   // gRPC requests are rejected if Envoy is configured to redirect post-normalization. This is
@@ -1098,6 +1216,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   // 这里可以做一些修改, 注意这里是针对非 本envoy 创建的请求
   if (!state_.is_internally_created_) { // Only sanitize headers on first pass.
     // Modify the downstream remote address depending on configuration and headers.
+    // request 在这里才会插入 requestId
     const auto mutate_result = ConnectionManagerUtility::mutateRequestHeaders(
         *request_headers_, connection_manager_.read_callbacks_->connection(),
         connection_manager_.config_, *snapped_route_config_, connection_manager_.local_info_);
@@ -1117,6 +1236,8 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   ASSERT(filter_manager_.streamInfo().downstreamAddressProvider().remoteAddress() != nullptr);
 
   ASSERT(!cached_route_);
+  // 在这里就更新了 routeEntry, 后面的 router.cc 也是复用了这里生成的 routeEntry, 并且进一步根据负载均衡选择具体的上游 ip
+  // 但是真正应该使用哪个 route 规则, 是在这里就进行确定了的。
   refreshCachedRoute();
 
   if (!state_.is_internally_created_) { // Only mutate tracing headers on first pass.
@@ -1128,10 +1249,12 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
 
   filter_manager_.streamInfo().setRequestHeaders(*request_headers_);
 
+  // 这里真正去创建 router 这个 filter
   const bool upgrade_rejected = filter_manager_.createFilterChain() == false;
 
   // TODO if there are no filters when starting a filter iteration, the connection manager
   // should return 404. The current returns no response if there is no router filter.
+  // 这个逻辑是什么意思, 还没理解
   if (hasCachedRoute()) {
     // Do not allow upgrades if the route does not support it.
     if (upgrade_rejected) {
@@ -1148,11 +1271,41 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
     // Allow non websocket requests to go through websocket enabled routes.
   }
 
+  // 这里只是处理 idleTimeout, 不影响整体流程
+//  if (hasCachedRoute()) {
+//    const Router::RouteEntry* route_entry = cached_route_.value()->routeEntry();
+//    if (route_entry != nullptr && route_entry->idleTimeout()) {
+//      // TODO(mattklein123): Technically if the cached route changes, we should also see if the
+//      // route idle timeout has changed and update the value.
+//      idle_timeout_ms_ = route_entry->idleTimeout().value();
+//      response_encoder_->getStream().setFlushTimeout(idle_timeout_ms_);
+//      if (idle_timeout_ms_.count()) {
+//        // If we have a route-level idle timeout but no global stream idle timeout, create a timer.
+//        if (stream_idle_timer_ == nullptr) {
+//          stream_idle_timer_ =
+//              connection_manager_.read_callbacks_->connection().dispatcher().createScaledTimer(
+//                  Event::ScaledTimerType::HttpDownstreamIdleStreamTimeout,
+//                  [this]() -> void { onIdleTimeout(); });
+//        }
+//      } else if (stream_idle_timer_ != nullptr) {
+//        // If we had a global stream idle timeout but the route-level idle timeout is set to zero
+//        // (to override), we disable the idle timer.
+//        stream_idle_timer_->disableTimer();
+//        stream_idle_timer_ = nullptr;
+//      }
+//    }
+//  }
+
   // Check if tracing is enabled at all.
   if (connection_manager_.config_.tracingConfig()) {
     traceRequest();
   }
 
+  ENVOY_STREAM_LOG(debug, "TCloud 是否插入了 Sw8, request headers complete:\n{}", *this, *request_headers_);
+
+
+  // 这里面回去遍历 HttpConnectionManager 中配置的 3 个 http filters, 分别调用他们的 decodeHeaders 方法。
+  // 前面 filter_manager_.createFilterChain() 刚创建完成以后, 这里就分别调用他们的 decodeHeaders 方法。
   filter_manager_.decodeHeaders(*request_headers_, end_stream);
 
   // Reset it here for both global and overridden cases.
@@ -1176,6 +1329,7 @@ void ConnectionManagerImpl::ActiveStream::traceRequest() {
   // be broken in the case a filter changes the route.
 
   // If a decorator has been defined, apply it to the active span.
+  // TODO 这里主要是涉及 trace 的一些知识, 下来可以学习一下。
   if (hasCachedRoute() && cached_route_.value()->decorator()) {
     const Router::Decorator* decorator = cached_route_.value()->decorator();
 
@@ -1361,6 +1515,7 @@ void ConnectionManagerImpl::ActiveStream::refreshDurationTimeout() {
   max_stream_duration_timer_->enableTimer(timeout);
 }
 
+// 刷新 route 规则
 void ConnectionManagerImpl::ActiveStream::refreshCachedRoute(const Router::RouteCallback& cb) {
   Router::RouteConstSharedPtr route;
   if (request_headers_ != nullptr) {
@@ -1370,11 +1525,13 @@ void ConnectionManagerImpl::ActiveStream::refreshCachedRoute(const Router::Route
       snapScopedRouteConfig();
     }
     if (snapped_route_config_ != nullptr) {
+      // 可以去看 RouteConstSharedPtr ConfigImpl::route 的方法, 选出一个 routeEntry
       route = snapped_route_config_->route(cb, *request_headers_, filter_manager_.streamInfo(),
                                            stream_id_);
     }
   }
 
+  // 接下来看这里, 后面怎么使用。
   setRoute(route);
 }
 
@@ -1446,6 +1603,7 @@ void ConnectionManagerImpl::ActiveStream::encodeHeaders(ResponseHeaderMap& heade
   // Base headers.
 
   // We want to preserve the original date header, but we add a date header if it is absent
+  // 我们希望保留原始日期标头，但如果没有，我们会添加一个日期标头
   if (!headers.Date()) {
     connection_manager_.config_.dateProvider().setDateHeader(headers);
   }
@@ -1716,6 +1874,7 @@ ConnectionManagerImpl::ActiveStream::route(const Router::RouteCallback& cb) {
  * Declared as a StreamFilterCallbacks member function for filters to call directly, but also
  * functions as a helper to refreshCachedRoute(const Router::RouteCallback& cb).
  */
+ // 根据 route 选择具体的 cluster
 void ConnectionManagerImpl::ActiveStream::setRoute(Router::RouteConstSharedPtr route) {
   filter_manager_.streamInfo().route_ = route;
   cached_route_ = std::move(route);

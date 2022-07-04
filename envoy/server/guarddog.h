@@ -16,6 +16,7 @@ namespace Server {
  *
  * The lifespan of the GuardDog thread is tied to the lifespan of this object.
  */
+ // GuardDog 运行一个后台线程，该线程定期扫描许多共享的 WatchDog 对象以验证它们最近是否被触摸过。如果某些被监视的项目没有响应，GuardDog 将采取从统计计数器增量到终止整个进程（如果怀疑死锁）的行动。
 class GuardDog {
 public:
   virtual ~GuardDog() = default;

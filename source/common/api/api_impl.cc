@@ -21,6 +21,7 @@ Impl::Impl(Thread::ThreadFactory& thread_factory, Stats::Store& store,
       file_system_(file_system), random_generator_(random_generator), bootstrap_(bootstrap),
       process_context_(process_context), watermark_factory_(std::move(watermark_factory)) {}
 
+// allocateDispatcher 每次创建一个新的 DispatcherImpl
 Event::DispatcherPtr Impl::allocateDispatcher(const std::string& name) {
   return std::make_unique<Event::DispatcherImpl>(name, *this, time_system_, watermark_factory_);
 }

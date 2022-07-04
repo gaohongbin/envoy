@@ -335,6 +335,11 @@ void UpstreamRequest::acceptHeadersFromRouter(bool end_stream) {
   ASSERT(!router_sent_end_stream_);
   router_sent_end_stream_ = end_stream;
 
+  // router.cc 里面调用了 encodeHeaders 方法。
+//void UpstreamRequest::encodeHeaders(bool end_stream) {
+//  ASSERT(!encode_complete_);
+//  encode_complete_ = end_stream;
+
   // Kick off creation of the upstream connection immediately upon receiving headers.
   // In future it may be possible for upstream filters to delay this, or influence connection
   // creation but for now optimize for minimal latency and fetch the connection

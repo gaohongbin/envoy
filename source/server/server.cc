@@ -82,10 +82,16 @@ InstanceImpl::InstanceImpl(
           thread_factory, store, time_system, file_system, *random_generator_, bootstrap_,
           process_context ? ProcessContextOptRef(std::ref(*process_context)) : absl::nullopt,
           watermark_factory)),
+//      api_(new Api::Impl(thread_factory, store, time_system, file_system, *random_generator_,
+//                         process_context ? ProcessContextOptRef(std::ref(*process_context))
+//                                         : absl::nullopt,
+//                         watermark_factory)),
+       // 创建 Dispatcher
       dispatcher_(api_->allocateDispatcher("main_thread")),
       access_log_manager_(options.fileFlushIntervalMsec(), *api_, *dispatcher_, access_log_lock,
                           store),
       singleton_manager_(new Singleton::ManagerImpl(api_->threadFactory())),
+      // 将上面刚创建的 main_thread 的 dispatcher 分配给 ConnectionHandlerImpl
       handler_(new ConnectionHandlerImpl(*dispatcher_, absl::nullopt)),
       listener_component_factory_(*this), worker_factory_(thread_local_, *api_, hooks),
       terminated_(false),
@@ -396,6 +402,7 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
   }
 
   // Handle configuration that needs to take place prior to the main configuration load.
+  // 处理需要在主配置加载之前进行的配置。
   InstanceUtil::loadBootstrapConfig(bootstrap_, options_,
                                     messageValidationContext().staticValidationVisitor(), *api_);
   bootstrap_config_update_time_ = time_source_.systemTime();
@@ -441,6 +448,7 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
   registerCustomInlineHeadersFromBootstrap(bootstrap_);
 
   ENVOY_LOG(info, "HTTP header map info:");
+  // 这是把所有的 header 都进行了注册 ?
   for (const auto& info : Http::HeaderMapImplUtility::getAllHeaderMapImplInfo()) {
     ENVOY_LOG(info, "  {}: {} bytes: {}", info.name_, info.size_,
               absl::StrJoin(info.registered_headers_, ","));
@@ -508,6 +516,10 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
     *bootstrap_.mutable_node()->mutable_user_agent_build_version() = VersionInfo::buildVersion();
   }
 
+//  bootstrap_.mutable_node()->set_hidden_envoy_deprecated_build_version(VersionInfo::version());
+//  bootstrap_.mutable_node()->set_user_agent_name("envoy");
+//  *bootstrap_.mutable_node()->mutable_user_agent_build_version() = VersionInfo::buildVersion();
+  // registerFactory 里面的代码再看看, 这块的注册没太理解
   for (const auto& ext : Envoy::Registry::FactoryCategoryRegistry::registeredFactories()) {
     auto registered_types = ext.second->registeredTypes();
     for (const auto& name : ext.second->allRegisteredNames()) {
@@ -547,9 +559,13 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
   }
   admin_ = std::make_unique<AdminImpl>(initial_config.admin().profilePath(), *this,
                                        initial_config.admin().ignoreGlobalConnLimit());
+//  restarter_.sendParentAdminShutdownRequest(original_start_time_);
+//  // 这个 admin 是 envoy 提供的一些 http 接口, 例如我们在 envoy 中访问 localhost:15000/config_dump 这种 http 请求
+//  // 就是 admin 进行处理的。
+//  admin_ = std::make_unique<AdminImpl>(initial_config.admin().profilePath(), *this);
 
   loadServerFlags(initial_config.flagsPath());
-
+  // secret_manager_ 是一个全局的变量
   secret_manager_ = std::make_unique<Secret::SecretManagerImpl>(admin_->getConfigTracker());
 
   // Initialize the overload manager early so other modules can register for actions.
@@ -599,13 +615,25 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
     }
   }
 
+  // tcloud 相关
+  tcloud_map_ = std::make_shared<Envoy::TcloudMap::TcloudMapImpl<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>>();
+  if (tcloud_map_) {
+    ENVOY_LOG(debug, "envoy/source/server/server.cc tcloud_map_ is not null");
+  } else {
+    ENVOY_LOG(debug, "envoy/source/server/server.cc tcloud_map_ is null");
+  }
+  // worker_factory_.setTcloudMap(tcloud_map_);
+
   // Workers get created first so they register for thread local updates.
+  // 初始化ListenerManager, 在这里管理所有的 Listener
+  // ListenerManager 会根据 envoy 的启动配置, 创建 workers
   listener_manager_ =
       std::make_unique<ListenerManagerImpl>(*this, listener_component_factory_, worker_factory_,
                                             bootstrap_.enable_dispatcher_stats(), quic_stat_names_);
 
   // The main thread is also registered for thread local updates so that code that does not care
   // whether it runs on the main thread or on workers can still use TLS.
+  // 将主线程的 dispatcher 注册到 thread_local_ 中。
   thread_local_.registerThread(*dispatcher_, true);
 
   // We can now initialize stats for threading.
@@ -672,6 +700,7 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
   dns_resolver_ =
       dns_resolver_factory.createDnsResolver(dispatcher(), api(), typed_dns_resolver_config);
 
+  // 通过 ProdClusterManagerFactory 实例化 cluster_manager_factory
   cluster_manager_factory_ = std::make_unique<Upstream::ProdClusterManagerFactory>(
       serverFactoryContext(), *admin_, runtime(), stats_store_, thread_local_, dns_resolver_,
       *ssl_context_manager_, *dispatcher_, *local_info_, *secret_manager_,
@@ -682,10 +711,13 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
   // thread local data per above. See MainImpl::initialize() for why ConfigImpl
   // is constructed as part of the InstanceImpl and then populated once
   // cluster_manager_factory_ is available.
+  // 使用 bootstrap 初始化 config, 这个 bootstrap 对应 /etc/istio/proxy/envoy-rev0.json, 该文件应该是 istio-init 生成的。
+  // 这是将 bootstrap 中的配置初始化到了 server 的 config 中
   config_.initialize(bootstrap_, *this, *cluster_manager_factory_);
 
   // Instruct the listener manager to create the LDS provider if needed. This must be done later
   // because various items do not yet exist when the listener manager is created.
+  // 根据 bootstrap 中的 lds 配置, 生成 LDS api
   if (bootstrap_.dynamic_resources().has_lds_config() ||
       !bootstrap_.dynamic_resources().lds_resources_locator().empty()) {
     std::unique_ptr<xds::core::v3::ResourceLocator> lds_resources_locator;
@@ -694,6 +726,8 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
           std::make_unique<xds::core::v3::ResourceLocator>(Config::XdsResourceIdentifier::decodeUrl(
               bootstrap_.dynamic_resources().lds_resources_locator()));
     }
+    // 创建 LDS Api
+    // LDS 是 Envoy 用来自动获取 listener 的 API。 Envoy 通过 API 可以增加、修改或删除 listener。
     listener_manager_->createLdsApi(bootstrap_.dynamic_resources().lds_config(),
                                     lds_resources_locator.get());
   }
@@ -723,6 +757,7 @@ void InstanceImpl::initialize(Network::Address::InstanceConstSharedPtr local_add
 
   // GuardDog (deadlock detection) object and thread setup before workers are
   // started and before our own run() loop runs.
+  // 检测机制
   main_thread_guard_dog_ = std::make_unique<Server::GuardDogImpl>(
       stats_store_, config_.mainThreadWatchdogConfig(), *api_, "main_thread");
   worker_guard_dog_ = std::make_unique<Server::GuardDogImpl>(
@@ -776,6 +811,7 @@ void InstanceImpl::onRuntimeReady() {
 
 void InstanceImpl::startWorkers() {
   // The callback will be called after workers are started.
+  // workers 被启动以后, 调用该 callback
   listener_manager_->startWorkers(*worker_guard_dog_, [this]() {
     if (isShutdown()) {
       return;
@@ -785,6 +821,7 @@ void InstanceImpl::startWorkers() {
     // Update server stats as soon as initialization is done.
     updateServerStats();
     workers_started_ = true;
+    // hooks 对应 DefaultListenerHooks 是一个空的实现类
     hooks_.onWorkersStarted();
     // At this point we are ready to take traffic and all listening ports are up. Notify our
     // parent if applicable that they can stop listening and drain.
@@ -884,6 +921,7 @@ RunHelper::RunHelper(Instance& instance, const Options& options, Event::Dispatch
 void InstanceImpl::run() {
   // RunHelper exists primarily to facilitate testing of how we respond to early shutdown during
   // startup (see RunHelperTest in server_test.cc).
+  // RunHelper 的存在主要是为了方便测试我们如何响应启动期间的提前关闭
   const auto run_helper = RunHelper(*this, options_, *dispatcher_, clusterManager(),
                                     access_log_manager_, init_manager_, overloadManager(), [this] {
                                       notifyCallbacksForStage(Stage::PostInit);

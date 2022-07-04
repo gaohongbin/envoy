@@ -19,18 +19,22 @@ namespace RocketmqProxy {
 namespace rocketmq_config = envoy::extensions::filters::network::rocketmq_proxy::v3;
 
 Network::FilterFactoryCb RocketmqProxyFilterConfigFactory::createFilterFactoryFromProtoTyped(
-    const rocketmq_config::RocketmqProxy& proto_config,
-    Server::Configuration::FactoryContext& context) {
+    const rocketmq_config::RocketmqProxy& proto_config, Server::Configuration::FactoryContext& context) {
+  // 初始化 RocketmqProxy::Config
   std::shared_ptr<ConfigImpl> filter_config = std::make_shared<ConfigImpl>(proto_config, context);
+  // 生成 ConnectionManager 的 callback
   return [filter_config, &context](Network::FilterManager& filter_manager) -> void {
     filter_manager.addReadFilter(std::make_shared<ConnectionManager>(
-        *filter_config, context.mainThreadDispatcher().timeSource()));
+        *filter_config, context.mainThreadDispatcher().timeSource(), context.getTcloudMap()));
   };
 }
 
+// TODO 后面需要学习一下 registry.h 中的内容
 REGISTER_FACTORY(RocketmqProxyFilterConfigFactory,
                  Server::Configuration::NamedNetworkFilterConfigFactory);
 
+
+// config.route_config()  从 proto 中获取 route_config
 ConfigImpl::ConfigImpl(const RocketmqProxyConfig& config,
                        Server::Configuration::FactoryContext& context)
     : context_(context), stats_prefix_(fmt::format("rocketmq.{}.", config.stat_prefix())),
@@ -56,6 +60,7 @@ std::string ConfigImpl::proxyAddress() {
   return address->asString();
 }
 
+// 通过 route_matcher 生成 Route
 Router::RouteConstSharedPtr ConfigImpl::route(const MessageMetadata& metadata) const {
   return route_matcher_->route(metadata);
 }

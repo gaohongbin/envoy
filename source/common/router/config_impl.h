@@ -214,6 +214,7 @@ class ConfigImpl;
 /**
  * Holds all routing configuration for an entire virtual host.
  */
+// 保存 virtual host 的所有配置
 class VirtualHostImpl : public VirtualHost, Logger::Loggable<Logger::Id::router> {
 public:
   VirtualHostImpl(
@@ -254,6 +255,7 @@ public:
       std::function<void(const Router::RouteSpecificFilterConfig&)> cb) const override;
 
 private:
+  // 需要进行 https 重定向的配置选项。
   enum class SslRequirements { None, ExternalOnly, All };
 
   struct StatNameProvider {
@@ -804,6 +806,9 @@ public:
    * RouteEntryImplBase object. Almost all functions in this class forward calls back to the
    * parent, with the exception of clusterName, routeEntry, and metadataMatchCriteria.
    */
+   // 加权集群的路由实现。
+   // RouteEntryImplBase 对象持有一个或多个加权簇对象，其中每个对象都有一个指向父 RouteEntryImplBase 对象的后向指针。
+  // 除了 clusterName、routeEntry 和 metadataMatchCriteria 之外，此类中的几乎所有函数都将调用转发回父级。
   class WeightedClusterEntry : public DynamicRouteEntry {
   public:
     WeightedClusterEntry(const RouteEntryImplBase* parent, const std::string& rutime_key,
@@ -1080,6 +1085,7 @@ private:
 /**
  * Route entry implementation for prefix path match routing.
  */
+ // 前缀匹配
 class PrefixRouteEntryImpl : public RouteEntryImplBase {
 public:
   PrefixRouteEntryImpl(const VirtualHostImpl& vhost, const envoy::config::route::v3::Route& route,
@@ -1112,6 +1118,7 @@ private:
 /**
  * Route entry implementation for exact path match routing.
  */
+ // 精确路径匹配
 class PathRouteEntryImpl : public RouteEntryImplBase {
 public:
   PathRouteEntryImpl(const VirtualHostImpl& vhost, const envoy::config::route::v3::Route& route,
@@ -1144,6 +1151,7 @@ private:
 /**
  * Route entry implementation for regular expression match routing.
  */
+ // 正则匹配
 class RegexRouteEntryImpl : public RouteEntryImplBase {
 public:
   RegexRouteEntryImpl(const VirtualHostImpl& vhost, const envoy::config::route::v3::Route& route,
@@ -1176,6 +1184,7 @@ private:
 /**
  * Route entry implementation for CONNECT requests.
  */
+ // CONNECT 请求的路由条目实现。
 class ConnectRouteEntryImpl : public RouteEntryImplBase {
 public:
   ConnectRouteEntryImpl(const VirtualHostImpl& vhost, const envoy::config::route::v3::Route& route,
@@ -1312,6 +1321,7 @@ private:
 /**
  * Implementation of Config that reads from a proto file.
  */
+ // 这个就是 RDS 转换后的 结构体。
 class ConfigImpl : public Config {
 public:
   ConfigImpl(const envoy::config::route::v3::RouteConfiguration& config,

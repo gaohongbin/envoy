@@ -92,6 +92,7 @@ envoy_cc_library(
         "//envoy/runtime:runtime_interface",
         "//envoy/server:listener_manager_interface",
         "//envoy/stats:timespan_interface",
+        "//envoy/tcloud:tcloud_map_interface",
         "//source/common/common:linked_object",
         "//source/common/common:non_copyable",
         "//source/common/event:deferred_task",
@@ -469,6 +470,7 @@ envoy_cc_library(
         "//envoy/server:listener_manager_interface",
         "//envoy/server:transport_socket_config_interface",
         "//envoy/server:worker_interface",
+        "//envoy/tcloud:tcloud_map_interface",
         "//source/common/access_log:access_log_lib",
         "//source/common/common:basic_resource_lib",
         "//source/common/common:empty_string",
@@ -519,6 +521,7 @@ envoy_cc_library(
         "//envoy/server:instance_interface",
         "//envoy/server:listener_manager_interface",
         "//envoy/server:transport_socket_config_interface",
+        "//envoy/tcloud:tcloud_map_interface",
         "//source/common/common:empty_string",
         "//source/common/config:utility_lib",
         "//source/common/init:manager_lib",
@@ -598,6 +601,7 @@ envoy_cc_library(
         "//envoy/stats:stats_macros",
         "//envoy/tracing:http_tracer_interface",
         "//envoy/upstream:cluster_manager_interface",
+        "//envoy/tcloud:tcloud_map_interface",
         "//source/common/access_log:access_log_manager_lib",
         "//source/common/api:api_lib",
         "//source/common/common:cleanup_lib",
@@ -632,6 +636,7 @@ envoy_cc_library(
         "//source/common/version:version_lib",
         "//source/server:overload_manager_lib",
         "//source/server/admin:admin_lib",
+        "//source/common/tcloud:tcloud_map_lib",
         "@envoy_api//envoy/admin/v3:pkg_cc_proto",
         "@envoy_api//envoy/config/bootstrap/v3:pkg_cc_proto",
     ],
@@ -679,6 +684,7 @@ envoy_cc_library(
         "//envoy/server:worker_interface",
         "//envoy/thread:thread_interface",
         "//envoy/thread_local:thread_local_interface",
+        "//envoy/tcloud:tcloud_map_interface",
     ],
 )
 
@@ -687,6 +693,7 @@ envoy_cc_library(
     hdrs = ["transport_socket_config_impl.h"],
     deps = [
         "//envoy/server:transport_socket_config_interface",
+        "//envoy/tcloud:tcloud_map_interface",
     ],
 )
 

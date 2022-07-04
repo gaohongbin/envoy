@@ -225,6 +225,38 @@ void FilterChainManagerImpl::addFilterChains(
           "error adding listener '{}': filter chain '{}' contains "
           "unimplemented fields",
           absl::StrJoin(addresses_, ",", Network::AddressStrFormatter()), filter_chain->name()));
+//      throw EnvoyException(fmt::format("error adding listener '{}': filter chain '{}' contains "
+//                                       "unimplemented fields",
+//                                       address_->asString(), filter_chain->name()));
+//    }
+//    // 从这里可以理解 filterChains, 通过查看 istio 下发的配置信息，可以看出 filterChains 是个数组, 里面包含多个 filters 和 对应的 filterChainMatch
+//    // 被监听器监听到的请求, 如果满足 filterChainMatch 就会执行相应的 filters
+//    // 如果所有的 filterChainMatch 都没有匹配到, 则使用 defaultFilterChain 进行处理。
+//    const auto& matching_iter = filter_chains.find(filter_chain_match);
+//    if (matching_iter != filter_chains.end()) {
+//      throw EnvoyException(fmt::format("error adding listener '{}': filter chain '{}' has "
+//                                       "the same matching rules defined as '{}'",
+//                                       address_->asString(), filter_chain->name(),
+//                                       matching_iter->second));
+//    }
+//    filter_chains.insert({filter_chain_match, filter_chain->name()});
+//    // 我看看这些 filter_chain 的 name 到底是什么
+//    // 通过打日志可以看出, 只有极个别 filter_chain 有name, 其他均没有。
+//    ENVOY_LOG(debug, "tcloud filter_chains insert filter_chain.name = {}", filter_chain->name());
+//
+//    // Validate IP addresses.
+//    std::vector<std::string> destination_ips;
+//    destination_ips.reserve(filter_chain_match.prefix_ranges().size());
+//    for (const auto& destination_ip : filter_chain_match.prefix_ranges()) {
+//      const auto& cidr_range = Network::Address::CidrRange::create(destination_ip);
+//      destination_ips.push_back(cidr_range.asString());
+//    }
+//
+//    std::vector<std::string> source_ips;
+//    source_ips.reserve(filter_chain_match.source_prefix_ranges().size());
+//    for (const auto& source_ip : filter_chain_match.source_prefix_ranges()) {
+//      const auto& cidr_range = Network::Address::CidrRange::create(source_ip);
+//      source_ips.push_back(cidr_range.asString());
     }
     if (!filter_chain_matcher) {
       const auto& matching_iter = filter_chains.find(filter_chain_match);

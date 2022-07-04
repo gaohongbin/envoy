@@ -595,6 +595,7 @@ Status ConnectionImpl::checkMaxHeadersSize() {
 }
 
 bool ConnectionImpl::maybeDirectDispatch(Buffer::Instance& data) {
+  // 只有 upgrad request 才进行 direct dispatch
   if (!handling_upgrade_) {
     // Only direct dispatch for Upgrade requests.
     return false;
@@ -638,14 +639,17 @@ Http::Status ConnectionImpl::dispatch(Buffer::Instance& data) {
   }
 
   // Always resume before dispatch.
+  // dispatch 之前做一次恢复
   parser_->resume();
 
   ssize_t total_parsed = 0;
   if (data.length() > 0) {
     current_dispatching_buffer_ = &data;
     while (data.length() > 0) {
+      // 获取第一块有数据的块
       auto slice = data.frontSlice();
       dispatching_slice_already_drained_ = false;
+      // 处理每个 slice 块。
       auto statusor_parsed = dispatchSlice(static_cast<const char*>(slice.mem_), slice.len_);
       if (!statusor_parsed.ok()) {
         return statusor_parsed.status();
@@ -664,6 +668,7 @@ Http::Status ConnectionImpl::dispatch(Buffer::Instance& data) {
       }
     }
     current_dispatching_buffer_ = nullptr;
+    // 过 filter 进行处理
     dispatchBufferedBody();
   } else {
     auto result = dispatchSlice(nullptr, 0);
@@ -683,6 +688,7 @@ Http::Status ConnectionImpl::dispatch(Buffer::Instance& data) {
 
 Envoy::StatusOr<size_t> ConnectionImpl::dispatchSlice(const char* slice, size_t len) {
   ASSERT(codec_status_.ok() && dispatching_);
+  // 执行 parser_ 的各个步骤
   const size_t nread = parser_->execute(slice, len);
   if (!codec_status_.ok()) {
     return codec_status_;
@@ -812,6 +818,7 @@ Status ConnectionImpl::onHeaderValueImpl(const char* data, size_t length) {
   return checkMaxHeadersSize();
 }
 
+// header 解析完成后做的回调
 StatusOr<CallbackResult> ConnectionImpl::onHeadersCompleteImpl() {
   ASSERT(!processing_trailers_);
   ASSERT(dispatching_);
@@ -848,6 +855,7 @@ StatusOr<CallbackResult> ConnectionImpl::onHeadersCompleteImpl() {
       handling_upgrade_ = true;
     }
   }
+  // methodName() 方法返回的是诸如 GET, POST 等的请求方式
   if (parser_->methodName() == header_values.MethodValues.Connect) {
     if (request_or_response_headers.ContentLength()) {
       if (request_or_response_headers.getContentLengthValue() == "0") {
@@ -880,6 +888,7 @@ StatusOr<CallbackResult> ConnectionImpl::onHeadersCompleteImpl() {
   // Reject message with Http::Code::BadRequest if both Transfer-Encoding and Content-Length
   // headers are present or if allowed by http1 codec settings and 'Transfer-Encoding'
   // is chunked - remove Content-Length and serve request.
+  // TODO 可以了解一下 http 协议之 chunk, 这里我们先跳过
   if (parser_->hasTransferEncoding() != 0 && request_or_response_headers.ContentLength()) {
     if (parser_->isChunked() && codec_settings_.allow_chunked_length_) {
       request_or_response_headers.removeContentLength();
@@ -1156,6 +1165,7 @@ Envoy::StatusOr<CallbackResult> ServerConnectionImpl::onHeadersCompleteBase() {
 
     // Inform the response encoder about any HEAD method, so it can set content
     // length and transfer encoding headers correctly.
+    // 后面尝试在这里修改 response 的 header, 将 traceId 插入 response header 进行返回。
     const Http::HeaderValues& header_values = Http::Headers::get();
     active_request_->response_encoder_.setIsResponseToHeadRequest(parser_->methodName() ==
                                                                   header_values.MethodValues.Head);
@@ -1184,6 +1194,7 @@ Envoy::StatusOr<CallbackResult> ServerConnectionImpl::onHeadersCompleteBase() {
     if (parser_->isChunked() ||
         (parser_->contentLength().has_value() && parser_->contentLength().value() > 0) ||
         handling_upgrade_) {
+        // 调用 conn_manager_impl 的 decodeHeaders 方法。
       active_request_->request_decoder_->decodeHeaders(std::move(headers), false);
 
       // If the connection has been closed (or is closing) after decoding headers, pause the parser
@@ -1207,6 +1218,16 @@ Status ServerConnectionImpl::onMessageBeginBase() {
       return codecClientError("cannot create new streams after calling reset");
     }
     active_request_->request_decoder_ = &callbacks_.newStream(active_request_->response_encoder_);
+//    ASSERT(!active_request_.has_value());
+//    // 原位构造
+//    // TODO 呃... absl::optional 这个东西我也不太懂, 先知道它是构造一个新的 active_request_ 就可以了。
+//    active_request_.emplace(*this);
+//    auto& active_request = active_request_.value();
+//    if (resetStreamCalled()) {
+//      return codecClientError("cannot create new streams after calling reset");
+//    }
+//    // 这里 callbacks_ 的本质是 ConnectionManagerImpl (见 conn_manager_impl.cc）
+//    active_request.request_decoder_ = &callbacks_.newStream(active_request.response_encoder_);
 
     // Check for pipelined request flood as we prepare to accept a new request.
     // Parse errors that happen prior to onMessageBegin result in stream termination, it is not
@@ -1226,6 +1247,7 @@ Status ServerConnectionImpl::onUrlBase(const char* data, size_t length) {
   return okStatus();
 }
 
+// 这里组中调用了 decodeData
 void ServerConnectionImpl::onBody(Buffer::Instance& data) {
   ASSERT(!deferred_end_stream_headers_);
   if (active_request_) {

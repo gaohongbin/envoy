@@ -193,6 +193,11 @@ public:
     return nullptr;
   }
 
+  // tcloud 泳道
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override {
+    return server_contexts_.getTcloudMap();
+  }
+
 private:
   void initialize(const Options& options,
                   const Network::Address::InstanceConstSharedPtr& local_address,

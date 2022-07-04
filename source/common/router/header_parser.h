@@ -26,6 +26,7 @@ using HeaderValueOption = envoy::config::core::v3::HeaderValueOption;
  * between a constant value implementation and a dynamic value implementation based on
  * StreamInfo::StreamInfo fields.
  */
+// 头解析, 可以对 header 进行一些特定化操作
 class HeaderParser : public Http::HeaderEvaluator {
 public:
   /*

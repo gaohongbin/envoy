@@ -42,6 +42,7 @@ Runtime::LoaderPtr ProdComponentFactory::createRuntime(Server::Instance& server,
   return Server::InstanceUtil::createRuntime(server, config);
 }
 
+// 最主要的逻辑就是初始化 InstanceImpl 作为 server_
 MainCommonBase::MainCommonBase(const Server::Options& options, Event::TimeSystem& time_system,
                                ListenerHooks& listener_hooks,
                                Server::ComponentFactory& component_factory,
@@ -67,6 +68,7 @@ MainCommonBase::MainCommonBase(const Server::Options& options, Event::TimeSystem
   switch (options_.mode()) {
   case Server::Mode::InitOnly:
   case Server::Mode::Serve: {
+    // TODO 这是热启动相关的吗
     configureHotRestarter(*random_generator);
 
     tls_ = std::make_unique<ThreadLocal::InstanceImpl>();
@@ -202,6 +204,20 @@ MainCommon::MainCommon(const std::vector<std::string>& args)
             std::make_unique<PlatformImpl>(), std::make_unique<Random::RandomGeneratorImpl>(),
             nullptr) {}
 
+// MainCommon 的初始化逻辑, 主要逻辑是空的, 但是初始化两个变量, options_ 和 base_
+// 找到一个 envoy 的启动参数如下:
+//   - args:
+//    - proxy
+//    - router
+//    - --domain
+//    - istio-work-test.svc.cluster.local
+//    - --proxyLogLevel=warning
+//    - --proxyComponentLogLevel=misc:error
+//    - --log_output_level=default:info
+//    - --serviceCluster
+//    - envoy-gw-dstest
+
+// TODO prod_component_factory_ 什么时候初始化的呢？
 MainCommon::MainCommon(int argc, const char* const* argv)
     : options_(argc, argv, &MainCommon::hotRestartVersion, spdlog::level::info),
       base_(options_, real_time_system_, default_listener_hooks_, prod_component_factory_,
@@ -232,6 +248,7 @@ int MainCommon::main(int argc, char** argv, PostServerHook hook) {
   // as needed. Whatever code in the initialization path that fails is expected to log an error
   // message so the user can diagnose.
   TRY_ASSERT_MAIN_THREAD {
+    // 可以看出 main 方法的本质就是初始化了一个 MainCommon, 然后最后执行 main_common 的 run() 方法。
     main_common = std::make_unique<Envoy::MainCommon>(argc, argv);
     Envoy::Server::Instance* server = main_common->server();
     if (server != nullptr && hook != nullptr) {

@@ -2,19 +2,19 @@
   "name": "Envoy Dev",
   "dockerFile": "Dockerfile",
   "runArgs": [
-    "--user=vscode",
+    "--user=root",
     "--cap-add=SYS_PTRACE",
     "--cap-add=NET_RAW",
     "--cap-add=NET_ADMIN",
     "--security-opt=seccomp=unconfined",
     "--volume=${env:HOME}:${env:HOME}",
     "--volume=envoy-build:/build",
-    "--network=host",
+    "--network=host"
     // Uncomment next line if you have devcontainer.env
     // "--env-file=.devcontainer/devcontainer.env"
   ],
   "containerEnv": {
-    "ENVOY_SRCDIR": "${containerWorkspaceFolder}",
+    "ENVOY_SRCDIR": "${containerWorkspaceFolder}"
   },
   "settings": {
     "terminal.integrated.shell.linux": "/bin/bash",
@@ -34,8 +34,8 @@
       "**/bazel-*/**": true
     }
   },
-  "remoteUser": "vscode",
-  "containerUser": "vscode",
+  "remoteUser": "root",
+  "containerUser": "root",
   "postCreateCommand": ".devcontainer/setup.sh",
   "extensions": [
     "github.vscode-pull-request-github",

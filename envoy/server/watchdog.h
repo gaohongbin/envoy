@@ -14,6 +14,7 @@ namespace Server {
  * thread startup. After this point the "touch" method must be called
  * periodically to avoid triggering the deadlock detector.
  */
+// WatchDog 每个 thread 与一个 WatchDog 进行绑定, 然后需要定时调用 touch 方法, 防止 GuardDog 以为线程死锁了。
 class WatchDog {
 public:
   virtual ~WatchDog() = default;

@@ -11,6 +11,7 @@
 #include "envoy/network/listener.h"
 #include "envoy/server/listener_manager.h"
 #include "envoy/stats/scope.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "source/common/common/non_copyable.h"
 
@@ -27,6 +28,7 @@ class ActiveInternalListener;
  * Server side connection handler. This is used both by workers as well as the
  * main thread for non-threaded listeners.
  */
+// 服务器端连接处理程序。
 class ConnectionHandlerImpl : public Network::TcpConnectionHandler,
                               public Network::UdpConnectionHandler,
                               public Network::InternalListenerManager,
@@ -37,7 +39,8 @@ public:
       absl::optional<std::reference_wrapper<Network::UdpListenerCallbacks>>;
   using ActiveTcpListenerOptRef = absl::optional<std::reference_wrapper<ActiveTcpListener>>;
 
-  ConnectionHandlerImpl(Event::Dispatcher& dispatcher, absl::optional<uint32_t> worker_index);
+  ConnectionHandlerImpl(Event::Dispatcher& dispatcher, absl::optional<uint32_t> worker_index,
+      std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr);
 
   // Network::ConnectionHandler
   uint64_t numConnections() const override { return num_handler_connections_; }
@@ -152,6 +155,9 @@ private:
 
   bool disable_listeners_;
   UnitFloat listener_reject_fraction_{UnitFloat::min()};
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 } // namespace Server

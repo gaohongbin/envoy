@@ -107,6 +107,7 @@ public:
   /**
    * Used by ConnectionHandler to manage listeners.
    */
+   // 用于 ConnectionHandler 管理 listeners
   class ActiveListener {
   public:
     virtual ~ActiveListener() = default;

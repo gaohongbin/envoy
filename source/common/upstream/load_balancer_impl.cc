@@ -1054,6 +1054,7 @@ HostConstSharedPtr RandomLoadBalancer::peekAnotherHost(LoadBalancerContext* cont
   return peekOrChoose(context, true);
 }
 
+// RandomLoadBalancer 选择 host 的方法
 HostConstSharedPtr RandomLoadBalancer::chooseHostOnce(LoadBalancerContext* context) {
   return peekOrChoose(context, false);
 }

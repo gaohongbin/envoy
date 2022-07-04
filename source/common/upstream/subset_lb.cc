@@ -169,6 +169,8 @@ void SubsetLoadBalancer::initSelectorFallbackSubset(
   }
 }
 
+// https://cloudnative.to/envoy/api-v3/config/cluster/v3/cluster.proto.html#
+// 可以先阅读 envoy 的官方文档, 了解集群配置, 阅读本段代码会更清楚一点。
 HostConstSharedPtr SubsetLoadBalancer::chooseHost(LoadBalancerContext* context) {
   HostConstSharedPtr override_host = LoadBalancerContextBase::selectOverrideHost(
       cross_priority_host_map_.get(), override_host_status_, context);
@@ -244,6 +246,7 @@ SubsetLoadBalancer::getMetadataFallbackList(LoadBalancerContext* context) const 
 HostConstSharedPtr SubsetLoadBalancer::chooseHostIteration(LoadBalancerContext* context) {
   if (context) {
     bool host_chosen;
+    // host_chosen 通过引用传进去
     HostConstSharedPtr host = tryChooseHostFromContext(context, host_chosen);
     if (host_chosen) {
       // Subset lookup succeeded, return this result even if it's nullptr.
@@ -337,6 +340,7 @@ HostConstSharedPtr SubsetLoadBalancer::chooseHostForSelectorFallbackPolicy(
 // no metadata match criteria, if there is no matching subset, or if the matching subset contains
 // no hosts (ignoring health). Otherwise, host_chosen is true and the returns HostConstSharedPtr is
 // from the subset's load balancer (technically, it may still be nullptr).
+// 从 subset 中选出 host。 如果没有匹配到 subset 或者 存在对应的 subset, 但是没有实例, 则 host_chosen = false
 HostConstSharedPtr SubsetLoadBalancer::tryChooseHostFromContext(LoadBalancerContext* context,
                                                                 bool& host_chosen) {
   host_chosen = false;
@@ -344,6 +348,11 @@ HostConstSharedPtr SubsetLoadBalancer::tryChooseHostFromContext(LoadBalancerCont
   if (!match_criteria) {
     return nullptr;
   }
+
+  // single_key
+//  if (!single_key_.empty()) {
+//    return tryChooseHostFromMetadataMatchCriteriaSingle(*match_criteria, host_chosen);
+//  }
 
   // Route has metadata match criteria defined, see if we have a matching subset.
   LbSubsetEntryPtr entry = findSubset(match_criteria->metadataMatchCriteria());

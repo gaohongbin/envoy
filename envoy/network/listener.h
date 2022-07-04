@@ -35,6 +35,8 @@ using ListenSocketFactoryPtr = std::unique_ptr<ListenSocketFactory>;
  * Listeners created from the same ListenConfig instance have listening sockets
  * provided by the same ListenSocketFactory instance.
  */
+ // ListenSocketFactory 是 ListenConfig 的成员，用来创建 listen socket。
+ // 从同一 ListenConfig 实例创建的 listening sockets, 均是由同一个 ListenSocketFactory 实例创建的。
 class ListenSocketFactory {
 public:
   virtual ~ListenSocketFactory() = default;
@@ -68,6 +70,9 @@ public:
    * Close all sockets. This is used during draining scenarios.
    */
   virtual void closeAllSockets() PURE;
+   // 工作线程共享的套接字（如果有）；否则返回空值。
+  // virtual SocketOptRef sharedSocket() const PURE;
+// };
 
   /**
    * Perform any initialization that must occur immediately prior to using the listen socket on
@@ -140,31 +145,41 @@ public:
    * @return FilterChainManager& the factory for adding and searching through configured
    *         filter chains.
    */
+   // 用于添加和搜索已配置的过滤器链。
   virtual FilterChainManager& filterChainManager() PURE;
 
   /**
    * @return FilterChainFactory& the factory for setting up the filter chain on a new
    *         connection.
    */
+   // 用于在新连接上设置过滤器链
   virtual FilterChainFactory& filterChainFactory() PURE;
 
   /**
    * @return std::vector<ListenSocketFactoryPtr>& the factories to create listen sockets.
    */
   virtual std::vector<ListenSocketFactoryPtr>& listenSocketFactories() PURE;
+   // 用于创建 listen socket.
+  // virtual ListenSocketFactory& listenSocketFactory() PURE;
 
   /**
    * @return bool specifies whether the listener should actually listen on the port.
    *         A listener that doesn't listen on a port can only receive connections
    *         redirected from other listeners.
    */
+    // listener 是否监听特定的 port
+    // 不在端口上侦听的 listener 只能接收从其他 listeners 重定向的连接。
   virtual bool bindToPort() const PURE;
+
+  // virtual bool bindToPort() PURE;
 
   /**
    * @return bool if a connection should be handed off to another Listener after the original
    *         destination address has been restored. 'true' when 'use_original_dst' flag in listener
    *         configuration is set, false otherwise.
    */
+   // 在恢复原始目标地址后，是否应将连接移交给另一个 Listener。
+   //  当 Listener 配置中有 “use_original_dst”标志, 则返回 “true”，否则为 false。
   virtual bool handOffRestoredDestinationConnections() const PURE;
 
   /**
@@ -223,6 +238,8 @@ public:
    *         though the implementation may be a NOP balancer.
    */
   virtual ConnectionBalancer& connectionBalancer(const Network::Address::Instance& address) PURE;
+   // listener 的连接平衡器
+  // virtual ConnectionBalancer& connectionBalancer() PURE;
 
   /**
    * Open connection resources for this listener.
@@ -237,6 +254,7 @@ public:
   /**
    * @return pending connection backlog for TCP listeners.
    */
+   // listener 上积压的连接
   virtual uint32_t tcpBacklogSize() const PURE;
 
   /**
@@ -262,6 +280,7 @@ public:
    * Called when a new connection is accepted.
    * @param socket supplies the socket that is moved into the callee.
    */
+   // 新链接建立后调用
   virtual void onAccept(ConnectionSocketPtr&& socket) PURE;
 
   enum class RejectCause {
@@ -271,6 +290,7 @@ public:
   /**
    * Called when a new connection is rejected.
    */
+   // 拒绝连接后调用
   virtual void onReject(RejectCause cause) PURE;
 };
 
@@ -393,6 +413,7 @@ using UdpListenerCallbacksOptRef = absl::optional<std::reference_wrapper<UdpList
 /**
  * An abstract socket listener. Free the listener to stop listening on the socket.
  */
+ // 抽象 socket listener。释放 listener 以停止 socket 的监听。
 class Listener {
 public:
   virtual ~Listener() = default;
@@ -400,6 +421,7 @@ public:
   /**
    * Temporarily disable accepting new connections.
    */
+   // 暂时禁止新的 connection
   virtual void disable() PURE;
 
   /**

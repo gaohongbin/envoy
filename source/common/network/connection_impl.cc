@@ -94,6 +94,7 @@ ConnectionImpl::ConnectionImpl(Event::Dispatcher& dispatcher, ConnectionSocketPt
       dispatcher_, [this](uint32_t events) -> void { onFileEvent(events); }, trigger,
       Event::FileReadyType::Read | Event::FileReadyType::Write);
 
+  // 设置 this 作为 TransportSocketCallbacks
   transport_socket_->setTransportSocketCallbacks(*this);
 
   // TODO(soulxu): generate the connection id inside the addressProvider directly,
@@ -587,12 +588,14 @@ void ConnectionImpl::onFileEvent(uint32_t events) {
     return;
   }
 
+  // 是当 write_buffer_ 有数据以后, 可以往 ioHande 中写数据
   if (events & Event::FileReadyType::Write) {
     onWriteReady();
   }
 
   // It's possible for a write event callback to close the socket (which will cause fd_ to be -1).
-  // In this case ignore read event processing.
+  // In this case ignore write event processing.
+  // 当 read_buffer_ 中有数据后, 可以进行读取
   if (ioHandle().isOpen() && (events & Event::FileReadyType::Read)) {
     onReadReady();
   }
@@ -698,6 +701,7 @@ void ConnectionImpl::onWriteReady() {
     }
   }
 
+  // TransportSocketPtr 是进行实际读写的 socket, 里面封装了 io_handler
   IoResult result = transport_socket_->doWrite(*write_buffer_, write_end_stream_);
   ASSERT(!result.end_stream_read_); // The interface guarantees that only read operations set this.
   uint64_t new_buffer_size = write_buffer_->length();
@@ -794,6 +798,8 @@ absl::optional<uint64_t> ConnectionImpl::congestionWindowInBytes() const {
   return socket_->congestionWindowInBytes();
 }
 
+// flushWriteBuffer 后会调用 onWriteReady
+// 通过 transport_socket 将数据写到上游
 void ConnectionImpl::flushWriteBuffer() {
   if (state() == State::Open && write_buffer_->length() > 0) {
     onWriteReady();
@@ -915,10 +921,26 @@ ClientConnectionImpl::ClientConnectionImpl(
       stream_info_.filterState()->setData(object.name_, object.data_, object.state_type_,
                                           StreamInfo::FilterState::LifeSpan::Connection,
                                           object.stream_sharing_);
+//    if (*source != nullptr) {
+//      Api::SysCallIntResult result = socket_->bind(*source);
+//      if (result.rc_ < 0) {
+//        // TODO(lizan): consider add this error into transportFailureReason.
+//        ENVOY_LOG_MISC(debug, "Bind failure. Failed to bind to {}: {}", source->get()->asString(),
+//                       errorDetails(result.errno_));
+//        bind_error_ = true;
+//        // Set a special error state to ensure asynchronous close to give the owner of the
+//        // ConnectionImpl a chance to add callbacks and detect the "disconnect".
+//        immediate_error_event_ = ConnectionEvent::LocalClose;
+//
+//        // Trigger a write event to close this connection out-of-band.
+//        // 触发 write
+//        ioHandle().activateFileEvents(Event::FileReadyType::Write);
+//      }
     }
   }
 }
 
+// 建立连接
 void ClientConnectionImpl::connect() {
   ENVOY_CONN_LOG_EVENT(debug, "client_connection", "connecting to {}", *this,
                        socket_->connectionInfoProvider().remoteAddress()->asString());
@@ -948,6 +970,7 @@ void ClientConnectionImpl::connect() {
     ENVOY_CONN_LOG_EVENT(debug, "connection_immediate_error", "{}", *this, failureReason());
 
     // Trigger a write event. This is needed on macOS and seems harmless on Linux.
+    // 触发 write event。
     ioHandle().activateFileEvents(Event::FileReadyType::Write);
   }
 }

@@ -73,6 +73,41 @@ ConfigConstSharedPtr StaticRouteConfigProviderImpl::configCast() const {
 }
 
 // TODO(htuch): If support for multiple clusters is added per #1170 cluster_name_
+// "dynamicListeners": [
+//     {
+//         "name": "0.0.0.0_80",
+//         "activeState": {
+//             "listener": {
+//                 "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+//                 "name": "0.0.0.0_80",
+//                 "address": {
+//                     "socketAddress": {
+//                         "address": "0.0.0.0",
+//                         "portValue": 80
+//                     }
+//                 },
+//                 "filterChains": [
+//                     {
+//                         "filters": [
+//                             {
+//                                 "name": "envoy.filters.network.http_connection_manager",
+//                                 "typedConfig": {
+//                                     "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+//                                     "statPrefix": "outbound_0.0.0.0_80",
+//                                     "rds": {
+//                                         "configSource": {
+//                                             "ads": {
+
+//                                             },
+//                                             "initialFetchTimeout": "0s",
+//                                             "resourceApiVersion": "V3"
+//                                         },
+//                                         "routeConfigName": "http.80"
+//                                     },
+//                                     "httpFilters": [
+
+// 上面是 tcloud-v2(prod) 的 80 端口 Listener 的相关配置, 我们看上面 rds 相关内容, 每个 listener 的 HttpConnectionManager 的 rds 的 routeConfigName 是不一样的
+// 所以不同的端口处理逻辑不一样。
 RdsRouteConfigSubscription::RdsRouteConfigSubscription(
     RouteConfigUpdatePtr&& config_update,
     Envoy::Config::OpaqueResourceDecoderSharedPtr&& resource_decoder,
@@ -102,6 +137,61 @@ void RdsRouteConfigSubscription::beforeProviderUpdate(
         config_update_info_, factory_context_, stat_prefix_, route_config_provider_opt_);
     vhds_subscription_->registerInitTargetWithInitManager(
         noop_init_manager == nullptr ? local_init_manager_ : *noop_init_manager);
+//    const std::string& stat_prefix,
+//    Envoy::Router::RouteConfigProviderManagerImpl& route_config_provider_manager)
+//    : Envoy::Config::SubscriptionBase<envoy::config::route::v3::RouteConfiguration>(
+//          rds.config_source().resource_api_version(),
+//          factory_context.messageValidationContext().dynamicValidationVisitor(), "name"),
+//      route_config_name_(rds.route_config_name()),
+//      scope_(factory_context.scope().createScope(stat_prefix + "rds." + route_config_name_ + ".")),
+//      factory_context_(factory_context),
+//      parent_init_target_(fmt::format("RdsRouteConfigSubscription init {}", route_config_name_),
+//                          [this]() { local_init_manager_.initialize(local_init_watcher_); }),
+//      local_init_watcher_(fmt::format("RDS local-init-watcher {}", rds.route_config_name()),
+//                          [this]() { parent_init_target_.ready(); }),
+//      local_init_target_(
+//          fmt::format("RdsRouteConfigSubscription local-init-target {}", route_config_name_),
+//          [this]() { subscription_->start({route_config_name_}); }),
+//      local_init_manager_(fmt::format("RDS local-init-manager {}", route_config_name_)),
+//      stat_prefix_(stat_prefix), stats_({ALL_RDS_STATS(POOL_COUNTER(*scope_))}),
+//      route_config_provider_manager_(route_config_provider_manager),
+//      manager_identifier_(manager_identifier) {
+//  const auto resource_name = getResourceName();
+//  subscription_ =
+//      factory_context.clusterManager().subscriptionFactory().subscriptionFromConfigSource(
+//          rds.config_source(), Grpc::Common::typeUrl(resource_name), *scope_, *this,
+//          resource_decoder_, {});
+//  local_init_manager_.add(local_init_target_);
+//  config_update_info_ = std::make_unique<RouteConfigUpdateReceiverImpl>(factory_context);
+//}
+//
+//RdsRouteConfigSubscription::~RdsRouteConfigSubscription() {
+//  // If we get destroyed during initialization, make sure we signal that we "initialized".
+//  local_init_target_.ready();
+//
+//  // The ownership of RdsRouteConfigProviderImpl is shared among all HttpConnectionManagers that
+//  // hold a shared_ptr to it. The RouteConfigProviderManager holds weak_ptrs to the
+//  // RdsRouteConfigProviders. Therefore, the map entry for the RdsRouteConfigProvider has to get
+//  // cleaned by the RdsRouteConfigProvider's destructor.
+//  route_config_provider_manager_.dynamic_route_config_providers_.erase(manager_identifier_);
+//}
+//
+//// 当 pilot 下发新的 RDS 时, 调用该方法进行更新
+//void RdsRouteConfigSubscription::onConfigUpdate(
+//    const std::vector<Envoy::Config::DecodedResourceRef>& resources,
+//    const std::string& version_info) {
+//  if (!validateUpdateSize(resources.size())) {
+//    return;
+//  }
+//  // 可以查看 config_dump 下发的 envoy.config.route.v3.RouteConfiguration
+//  const auto& route_config = dynamic_cast<const envoy::config::route::v3::RouteConfiguration&>(
+//      resources[0].get().resource());
+//  if (route_config.name() != route_config_name_) {
+//    throw EnvoyException(fmt::format("Unexpected RDS configuration (expecting {}): {}",
+//                                     route_config_name_, route_config.name()));
+//  }
+//  if (route_config_provider_opt_.has_value()) {
+//    route_config_provider_opt_.value()->validateConfig(route_config);
   }
 }
 

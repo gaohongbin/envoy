@@ -177,6 +177,29 @@ Network::SocketSharedPtr ListenSocketFactoryImpl::getListenSocket(uint32_t worke
   ASSERT(worker_index < sockets_.size() && sockets_[worker_index] != nullptr);
   return sockets_[worker_index];
 }
+//Network::SocketSharedPtr ListenSocketFactoryImpl::getListenSocket() {
+//  // When this flag is set to false, all worker threads share one socket.
+//  if (!reuse_port_) {
+//    // We want to maintain the invariance that listeners do not share the same
+//    // underlying socket. For that reason we return a socket based on a duplicated
+//    // file descriptor.
+//    // 复制了文件描述符
+//    return socket_->duplicate();
+//  }
+//
+//  Network::SocketSharedPtr socket;
+//  absl::call_once(steal_once_, [this, &socket]() {
+//    if (socket_) {
+//      // If a listener's port is set to 0, socket_ should be created for reserving a port
+//      // number, it is handed over to the first worker thread came here.
+//      // There are several reasons for doing this:
+//      // - for UDP, once a socket being bound, it begins to receive packets, it can't be
+//      //   left unused, and closing it will lost packets received by it.
+//      // - port number should be reserved before adding listener to active_listeners_ list,
+//      //   otherwise admin API /listeners might return 0 as listener's port.
+//      socket = std::move(socket_);
+//    }
+//  });
 
 void ListenSocketFactoryImpl::doFinalPreWorkerInit() {
   if (bind_type_ == ListenerComponentFactory::BindType::NoBind ||
@@ -303,6 +326,10 @@ Server::DrainManager& ListenerFactoryContextBaseImpl::drainManager() { return *d
 // Must be overridden
 Init::Manager& ListenerFactoryContextBaseImpl::initManager() { PANIC("not implemented"); }
 
+std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> ListenerFactoryContextBaseImpl::getTcloudMap() {
+  return server_.getTcloudMap();
+}
+
 ListenerImpl::ListenerImpl(const envoy::config::listener::v3::Listener& config,
                            const std::string& version_info, ListenerManagerImpl& parent,
                            const std::string& name, bool added_via_api, bool workers_started,
@@ -355,7 +382,7 @@ ListenerImpl::ListenerImpl(const envoy::config::listener::v3::Listener& config,
           std::make_shared<Server::Configuration::TransportSocketFactoryContextImpl>(
               parent_.server_.serverFactoryContext(), parent_.server_.sslContextManager(),
               listenerScope(), parent_.server_.clusterManager(), parent_.server_.stats(),
-              validation_visitor_)),
+              validation_visitor_, parent_.server_.getTcloudMap())),
       quic_stat_names_(parent_.quicStatNames()),
       missing_listener_config_stats_({ALL_MISSING_LISTENER_CONFIG_STATS(
           POOL_COUNTER(listener_factory_context_->listenerScope()))}) {
@@ -405,6 +432,13 @@ ListenerImpl::ListenerImpl(const envoy::config::listener::v3::Listener& config,
   buildListenSocketOptions();
   createListenerFilterFactories();
   validateFilterChains();
+//  auto socket_type = Network::Utility::protobufAddressSocketType(config.address());
+//  buildListenSocketOptions(socket_type);
+//  buildUdpListenerFactory(socket_type, concurrency);
+//  // 创建 listenerFilterFactory
+//  createListenerFilterFactories(socket_type);
+//  validateFilterChains(socket_type);
+  // 处理 istio 下发的 listener 中的 filterChains 配置。(也即所谓的 networkFilter）
   buildFilterChains();
   if (socket_type_ != Network::Socket::Type::Datagram) {
     buildSocketOptions();
@@ -412,6 +446,13 @@ ListenerImpl::ListenerImpl(const envoy::config::listener::v3::Listener& config,
     buildProxyProtocolListenerFilter();
     buildInternalListener();
   }
+//  buildSocketOptions();
+//  // 这里主要处理 listenerFilters, 在 istio 下发的配置里面 listenerFilters 和 filterChains(也就是所说的 networkFilters) 是分开的。
+//  // 因为 listenerFilters 是 listener 维度的, 只要请求到了这个 listener, 都要被 listenerFilters 处理。
+//  // 而 networkFilter 是协议维度的, 不同的协议被不同的 filterChainMatch 匹配, 然后被相应的 filterChain 处理。
+//  buildOriginalDstListenerFilter();
+//  buildProxyProtocolListenerFilter();
+//  buildTlsInspectorListenerFilter();
   if (!workers_started_) {
     // Initialize dynamic_init_manager_ from Server's init manager if it's not initialized.
     // NOTE: listener_init_target_ should be added to parent's initManager at the end of the
@@ -465,6 +506,19 @@ ListenerImpl::ListenerImpl(ListenerImpl& origin,
       quic_stat_names_(parent_.quicStatNames()),
       missing_listener_config_stats_({ALL_MISSING_LISTENER_CONFIG_STATS(
           POOL_COUNTER(listener_factory_context_->listenerScope()))}) {
+//      filter_chain_manager_(address_, origin.listener_factory_context_->parentFactoryContext(),
+//                            initManager(), origin.filter_chain_manager_),
+//      local_init_watcher_(fmt::format("Listener-local-init-watcher {}", name), [this] {
+//        ASSERT(workers_started_);
+//        parent_.inPlaceFilterChainUpdate(*this);
+//      }) {
+
+  if (parent_.getTcloudMap()) {
+    ENVOY_LOG(debug, "envoy/source/server/listener_implc.cc ListenerImpl parent_ tcloud_map is not null");
+  } else {
+    ENVOY_LOG(debug, "envoy/source/server/listener_implc.cc ListenerImpl parent_ tcloud_map is null");
+  }
+
   buildAccessLog();
   validateConfig();
   buildListenSocketOptions();
@@ -721,6 +775,14 @@ void ListenerImpl::buildFilterChains() {
   ListenerFilterChainFactoryBuilder builder(*this, *transport_factory_context_);
   filter_chain_manager_->addFilterChains(
       config_.has_filter_chain_matcher() ? &config_.filter_chain_matcher() : nullptr,
+//  Server::Configuration::TransportSocketFactoryContextImpl transport_factory_context(
+//      parent_.server_.admin(), parent_.server_.sslContextManager(), listenerScope(),
+//      parent_.server_.clusterManager(), parent_.server_.localInfo(), parent_.server_.dispatcher(),
+//      parent_.server_.stats(), parent_.server_.singletonManager(), parent_.server_.threadLocal(),
+//      validation_visitor_, parent_.server_.api(), parent_.server_.options(), parent_.server_.getTcloudMap());
+//  transport_factory_context.setInitManager(*dynamic_init_manager_);
+//  ListenerFilterChainFactoryBuilder builder(*this, transport_factory_context);
+//  filter_chain_manager_.addFilterChains(
       config_.filter_chains(),
       config_.has_default_filter_chain() ? &config_.default_filter_chain() : nullptr, builder,
       *filter_chain_manager_);
@@ -907,6 +969,10 @@ bool PerListenerFactoryContextImpl::isQuicListener() const {
   return listener_factory_context_base_->isQuicListener();
 }
 Init::Manager& PerListenerFactoryContextImpl::initManager() { return listener_impl_.initManager(); }
+
+std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> PerListenerFactoryContextImpl::getTcloudMap() {
+  return listener_factory_context_base_->getTcloudMap();
+}
 
 bool ListenerImpl::createNetworkFilterChain(
     Network::Connection& connection,

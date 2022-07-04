@@ -30,6 +30,7 @@ public:
                     Runtime::Loader& runtime, Network::SocketSharedPtr&& socket,
                     Network::Address::InstanceConstSharedPtr& listen_address,
                     Network::ConnectionBalancer& connection_balancer);
+  // 这里 parent 就是 ConnectionHandlerImpl
   ActiveTcpListener(Network::TcpConnectionHandler& parent, Network::ListenerPtr&& listener,
                     Network::Address::InstanceConstSharedPtr& listen_address,
                     Network::ListenerConfig& config,
@@ -80,11 +81,31 @@ public:
    * connections are not impacted.
    */
   void updateListenerConfig(Network::ListenerConfig& config) override;
+//  void updateListenerConfig(Network::ListenerConfig& config);
+//
+//  Network::TcpConnectionHandler& parent_;
+//  Network::ListenerPtr listener_;
+//  const std::chrono::milliseconds listener_filters_timeout_;
+//  const bool continue_on_listener_filters_timeout_;
+//  std::list<ActiveTcpSocketPtr> sockets_;
+//  // 绑定相同 filterChain 的 ActiveConnectionsPtr 组成的 map
+//  absl::flat_hash_map<const Network::FilterChain*, ActiveConnectionsPtr> connections_by_context_;
 
   Network::TcpConnectionHandler& tcp_conn_handler_;
   // The number of connections currently active on this listener. This is typically used for
   // connection balancing across per-handler listeners.
   std::atomic<uint64_t> num_listener_connections_{};
+//  bool is_deleting_{false};
+//};
+//
+///**
+// * Wrapper for a group of active connections which are attached to the same filter chain context.
+// */
+// // ActiveConnections 本身就是针对同绑定相同 filter chain 而专门定义的结构体
+//class ActiveConnections : public Event::DeferredDeletable {
+//public:
+//  ActiveConnections(ActiveTcpListener& listener, const Network::FilterChain& filter_chain);
+//  ~ActiveConnections() override;
 
   Network::ConnectionBalancer& connection_balancer_;
   // This is the address this listener is listening on. It's used to get the correct listener

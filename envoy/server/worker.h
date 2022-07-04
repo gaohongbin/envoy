@@ -21,6 +21,7 @@ public:
    * Completion called when a listener has been added on a worker and is listening for new
    * connections.
    */
+  // 当 listener 被添加到 worker 以后, 并且已经开始监听连接, 则调用该接口
   using AddListenerCompletion = std::function<void()>;
 
   /**
@@ -33,6 +34,7 @@ public:
    *                   the worker.
    * @param runtime, supplies the runtime for the server
    */
+   // 添加一个 listener 到 worker 上面, 这个可以实现 listener 的 replace 功能。
   virtual void addListener(absl::optional<uint64_t> overridden_listener,
                            Network::ListenerConfig& listener, AddListenerCompletion completion,
                            Runtime::Loader& runtime) PURE;
@@ -67,6 +69,7 @@ public:
    * @param completion supplies the completion to be called when the listener has been removed.
    *        This completion is called on the worker thread. No locking is performed by the worker.
    */
+   // 删除 listener
   virtual void removeListener(Network::ListenerConfig& listener,
                               std::function<void()> completion) PURE;
   /**
@@ -77,6 +80,7 @@ public:
    * untracked connections. This completion is called on the worker thread. No locking is performed
    * by the worker.
    */
+   // 删除指定 listener 的 filter chains, 但是 listener 保留。
   virtual void removeFilterChains(uint64_t listener_tag,
                                   const std::list<const Network::FilterChain*>& filter_chains,
                                   std::function<void()> completion) PURE;

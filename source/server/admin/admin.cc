@@ -87,6 +87,9 @@ std::vector<absl::string_view> prepend(const absl::string_view first,
 
 AdminImpl::AdminImpl(const std::string& profile_path, Server::Instance& server,
                      bool ignore_global_conn_limit)
+// 可以看出 AdminImpl 主要是处理 envoy 提供的各种 http 方法, 方便用户进行调试查询.
+// 而且主要是用的 server 进行处理, 这个 server 就是 Server::Instance
+// AdminImpl::AdminImpl(const std::string& profile_path, Server::Instance& server)
     : server_(server),
       request_id_extension_(Extensions::RequestId::UUIDRequestIDExtension::defaultInstance(
           server_.api().randomGenerator())),
@@ -257,7 +260,7 @@ bool AdminImpl::createNetworkFilterChain(Network::Connection& connection,
   connection.addReadFilter(Network::ReadFilterSharedPtr{new Http::ConnectionManagerImpl(
       *this, server_.drainManager(), server_.api().randomGenerator(), server_.httpContext(),
       server_.runtime(), server_.localInfo(), server_.clusterManager(), null_overload_manager_,
-      server_.timeSource())});
+      server_.timeSource(), server_.getTcloudMap())});
   return true;
 }
 

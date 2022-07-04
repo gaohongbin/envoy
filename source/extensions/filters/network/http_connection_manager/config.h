@@ -49,11 +49,13 @@ using FilterConfigProviderManager =
 /**
  * Config registration for the HTTP connection manager filter. @see NamedNetworkFilterConfigFactory.
  */
+ // HttpConnectionManager 的配置注册。
 class HttpConnectionManagerFilterConfigFactory
     : Logger::Loggable<Logger::Id::config>,
       public Common::FactoryBase<
           envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager> {
 public:
+  // 通过 FactoryBase 定义了 name, 所以 REGISTER_FACTORY 中才可以使用 name 来获取 FilterConfigFactory
   HttpConnectionManagerFilterConfigFactory()
       : FactoryBase(NetworkFilterNames::get().HttpConnectionManager, true) {}
 
@@ -120,6 +122,8 @@ private:
 /**
  * Maps proto config to runtime config for an HTTP connection manager network filter.
  */
+ // HttpConnectionManagerConfig 是 ConnectionManagerConfig 的一个实现
+ // HttpConnectionManagerFilter 的配置, 通过 proto 文件生成
 class HttpConnectionManagerConfig : Logger::Loggable<Logger::Id::config>,
                                     public Http::FilterChainFactory,
                                     public Http::ConnectionManagerConfig {
@@ -155,6 +159,7 @@ public:
                                         Http::ServerConnectionCallbacks& callbacks) override;
   Http::DateProvider& dateProvider() override { return date_provider_; }
   std::chrono::milliseconds drainTimeout() const override { return drain_timeout_; }
+  // 可以在这里看到 filterFactory() 方法返回去的是 HttpConnectionManagerConfig 自身
   FilterChainFactory& filterFactory() override { return *this; }
   bool generateRequestId() const override { return generate_request_id_; }
   bool preserveExternalRequestId() const override { return preserve_external_request_id_; }
@@ -335,7 +340,7 @@ private:
 /**
  * Factory to create an HttpConnectionManager outside of a Network Filter Chain.
  */
-class HttpConnectionManagerFactory {
+class HttpConnectionManagerFactory : Logger::Loggable<Logger::Id::config> {
 public:
   static std::function<Http::ApiListenerPtr()> createHttpConnectionManagerFactoryFromProto(
       const envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&

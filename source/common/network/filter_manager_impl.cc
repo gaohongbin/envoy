@@ -61,6 +61,7 @@ void FilterManagerImpl::onContinueReading(ActiveReadFilter* filter,
     entry = std::next(filter->entry());
   }
 
+  // upstream_filters_ 就是所有的 read filter.
   for (; entry != upstream_filters_.end(); entry++) {
     if (!(*entry)->filter_) {
       continue;
@@ -73,6 +74,9 @@ void FilterManagerImpl::onContinueReading(ActiveReadFilter* filter,
       }
     }
 
+    // 这个 filter manager  是在 network ns 下面
+    // 在 处理 request 的过程中，这个 onData 对应的是 conn_manager_impl 里面的
+    // 而在处理 Rsp 的过程中，这个 onData 对应的是另外的流程
     StreamBuffer read_buffer = buffer_source.getReadBuffer();
     if (read_buffer.buffer.length() > 0 || read_buffer.end_stream) {
       FilterStatus status = (*entry)->filter_->onData(read_buffer.buffer, read_buffer.end_stream);
@@ -135,6 +139,11 @@ void FilterManagerImpl::onResumeWriting(ActiveWriteFilter* filter,
     StreamBuffer write_buffer = buffer_source.getWriteBuffer();
     connection_.rawWrite(write_buffer.buffer, write_buffer.end_stream);
   }
+}
+
+void FilterManagerImpl::setTcloudMap(std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map) {
+
+  tcloud_map_ = tcloud_map;
 }
 
 } // namespace Network

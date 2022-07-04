@@ -20,6 +20,7 @@ using Cancellable = ::Envoy::ConnectionPool::Cancellable;
  * Pool callbacks invoked in the context of a newStream() call, either synchronously or
  * asynchronously.
  */
+// 在 newStream() 调用的上下文中以同步或异步方式调用的 pool 回调。
 class Callbacks {
 public:
   virtual ~Callbacks() = default;
@@ -31,6 +32,7 @@ public:
    * @param host supplies the description of the host that caused the failure. This may be nullptr
    *             if no host was involved in the failure (for example overflow).
    */
+  // 当发生池错误并且无法为发出请求获取连接时调用。
   virtual void onPoolFailure(PoolFailureReason reason, absl::string_view transport_failure_reason,
                              Upstream::HostDescriptionConstSharedPtr host) PURE;
 
@@ -42,6 +44,7 @@ public:
    * @param info supplies the stream info object associated with the upstream L4 connection.
    * @param protocol supplies the protocol associated with the stream, or absl::nullopt for raw TCP.
    */
+   // 在 connection 正常创建后
   virtual void onPoolReady(RequestEncoder& encoder, Upstream::HostDescriptionConstSharedPtr host,
                            StreamInfo::StreamInfo& info,
                            absl::optional<Http::Protocol> protocol) PURE;
@@ -78,6 +81,7 @@ public:
 /**
  * An instance of a generic connection pool.
  */
+ // Instance 表示通用连接池的实例。
 class Instance : public Envoy::ConnectionPool::Instance, public Event::DeferredDeletable {
 public:
   struct StreamOptions {
@@ -93,6 +97,7 @@ public:
    * Determines whether the connection pool is actively processing any requests.
    * @return true if the connection pool has any pending requests or any active requests.
    */
+   // 确定连接池是否正在主动处理任何请求。
   virtual bool hasActiveConnections() const PURE;
 
   /**
@@ -111,6 +116,7 @@ public:
    * @warning Do not call cancel() from the callbacks, as the request is implicitly canceled when
    *          the callbacks are called.
    */
+  // 在连接池中创建一个新的 stream
   virtual Cancellable* newStream(Http::ResponseDecoder& response_decoder, Callbacks& callbacks,
                                  const StreamOptions& options) PURE;
 
@@ -118,6 +124,7 @@ public:
    * Returns a user-friendly protocol description for logging.
    * @return absl::string_view a protocol description for logging.
    */
+   // 返回用于日志记录的用户友好协议描述。
   virtual absl::string_view protocolDescription() const PURE;
 };
 

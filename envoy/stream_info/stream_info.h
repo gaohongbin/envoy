@@ -456,6 +456,7 @@ public:
 /**
  * Additional information about a completed request for logging.
  */
+ // 添加额外的信息
 class StreamInfo {
 public:
   virtual ~StreamInfo() = default;

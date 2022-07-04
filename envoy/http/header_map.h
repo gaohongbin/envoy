@@ -172,6 +172,8 @@ private:
 #define INLINE_REQ_STRING_HEADERS(HEADER_FUNC)                                                     \
   HEADER_FUNC(RemoteIp)                                                                            \
   HEADER_FUNC(RealIp)                                                                              \
+  HEADER_FUNC(TwlSpanContext)                                                                      \
+  HEADER_FUNC(TraceId)                                                                             \
   HEADER_FUNC(ClientTraceId)                                                                       \
   HEADER_FUNC(EnvoyDownstreamServiceCluster)                                                       \
   HEADER_FUNC(EnvoyDownstreamServiceNode)                                                          \
@@ -238,6 +240,8 @@ private:
  * Default O(1) request and response headers.
  */
 #define INLINE_REQ_RESP_STRING_HEADERS(HEADER_FUNC)                                                \
+  HEADER_FUNC(Sw8)                                                                                 \
+  HEADER_FUNC(TcloudLane)                                                                          \
   HEADER_FUNC(Connection)                                                                          \
   HEADER_FUNC(ContentType)                                                                         \
   HEADER_FUNC(EnvoyDecoratorOperation)                                                             \
@@ -305,6 +309,7 @@ private:
 /**
  * Wraps a set of HTTP headers.
  */
+// 对 HTTP 协议 header 的封装。
 class HeaderMap {
 public:
   virtual ~HeaderMap() = default;

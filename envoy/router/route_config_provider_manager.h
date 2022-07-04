@@ -22,6 +22,8 @@ namespace Router {
  * is exposed to the Server's FactoryContext in order to allow HttpConnectionManagers to get
  * RouteConfigProviders.
  */
+ // RouteConfigProviderManager 公开了获取 RouteConfigProvider 的能力。
+// 此接口暴露给服务器的 FactoryContext，以允许 HttpConnectionManagers 获取 RouteConfigProviders。
 class RouteConfigProviderManager {
 public:
   virtual ~RouteConfigProviderManager() = default;
@@ -40,6 +42,7 @@ public:
    * @param init_manager the Init::Manager used to coordinate initialization of a the underlying RDS
    * subscription.
    */
+   // 从 RDS 获取 route 的 RouteConfigProviderPtr，
   virtual RouteConfigProviderSharedPtr createRdsRouteConfigProvider(
       const envoy::extensions::filters::network::http_connection_manager::v3::Rds& rds,
       const OptionalHttpFilters& optional_http_filters,

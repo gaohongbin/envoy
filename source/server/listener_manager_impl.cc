@@ -79,8 +79,26 @@ void fillState(envoy::admin::v3::ListenersConfigDump::DynamicListenerState& stat
 
 std::vector<Network::FilterFactoryCb>
 ProdListenerComponentFactory::createNetworkFilterFactoryListImpl(
+//bool ListenSocketCreationParams::operator==(const ListenSocketCreationParams& rhs) const {
+//  return (bind_to_port == rhs.bind_to_port) &&
+//         (duplicate_parent_socket == rhs.duplicate_parent_socket);
+//}
+//
+//bool ListenSocketCreationParams::operator!=(const ListenSocketCreationParams& rhs) const {
+//  return !operator==(rhs);
+//}
+//
+//// 根据 listener 的 filterChain 中配置的 filters, 分别生成其工厂类 FilterFactory
+//std::vector<Network::FilterFactoryCb> ProdListenerComponentFactory::createNetworkFilterFactoryList_(
     const Protobuf::RepeatedPtrField<envoy::config::listener::v3::Filter>& filters,
     Server::Configuration::FilterChainFactoryContext& filter_chain_factory_context) {
+
+  if(filter_chain_factory_context.getTcloudMap()) {
+    ENVOY_LOG(debug, "tcloud ProdListenerComponentFactory filter_chain_factory_context->getTcloudMap() is not null");
+  } else {
+    ENVOY_LOG(debug, "tcloud ProdListenerComponentFactory filter_chain_factory_context->getTcloudMap() is null");
+  }
+
   std::vector<Network::FilterFactoryCb> ret;
   ret.reserve(filters.size());
   for (ssize_t i = 0; i < filters.size(); i++) {
@@ -92,6 +110,7 @@ ProdListenerComponentFactory::createNetworkFilterFactoryListImpl(
                   static_cast<const Protobuf::Message&>(proto_config.typed_config())));
 
     // Now see if there is a factory that will accept the config.
+    // 通过 proto 文件从 Registry::FactoryRegistry 中取出不同类型的 NamedNetworkFilterConfigFactory
     auto& factory =
         Config::Utility::getAndCheckFactory<Configuration::NamedNetworkFilterConfigFactory>(
             proto_config);
@@ -289,6 +308,9 @@ ListenerManagerImpl::ListenerManagerImpl(Instance& server,
             return dumpListenerConfigs(name_matcher);
           })),
       enable_dispatcher_stats_(enable_dispatcher_stats), quic_stat_names_(quic_stat_names) {
+//          "listeners", [this] { return dumpListenerConfigs(); })),
+//      enable_dispatcher_stats_(enable_dispatcher_stats) {
+      // 根据配置的核数, 创建多个 worker
   for (uint32_t i = 0; i < server.options().concurrency(); i++) {
     workers_.emplace_back(
         worker_factory.createWorker(i, server.overloadManager(), absl::StrCat("worker_", i)));
@@ -386,6 +408,8 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
   // TODO(junr03): currently only one ApiListener can be installed via bootstrap to avoid having to
   // build a collection of listeners, and to have to be able to warm and drain the listeners. In the
   // future allow multiple ApiListeners, and allow them to be created via LDS as well as bootstrap.
+  // 可以在 istio 代码里面搜 Listener 类, 不过这个 apiListener 我没看太明白, 先不管了, 先理解为一种特殊的东西吧。
+  // 从 envoy 日志来看, 下面这段 if 没有执行。因为没有配置 apiListener.
   if (config.has_api_listener()) {
     if (config.has_internal_listener()) {
       throw EnvoyException(fmt::format(
@@ -396,6 +420,12 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
       // TODO(junr03): dispatch to different concrete constructors when there are other
       // ApiListenerImplBase derived classes.
       api_listener_ = std::make_unique<HttpApiListener>(config, *this, config.name());
+      if (getTcloudMap()) {
+        ENVOY_LOG(debug, "tcloud ListenerManagerImpl::addOrUpdateListener getTcloudMap() is not null");
+      } else {
+        ENVOY_LOG(debug, "tcloud ListenerManagerImpl::addOrUpdateListener getTcloudMap() is null");
+      }
+      ENVOY_LOG(debug, "tcloud ListenerManagerImpl::addOrUpdateListener 执行到了这里, is not null or is null");
       return true;
     } else {
       ENVOY_LOG(warn, "listener {} can not be added because currently only one ApiListener is "
@@ -403,6 +433,14 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
       return false;
     }
   }
+
+  // 判断 Listener 是不是有 name, 如果没有生成一个唯一的 UUID
+//  std::string name;
+//  if (!config.name().empty()) {
+//    name = config.name();
+//  } else {
+//    name = server_.api().randomGenerator().uuid();
+//  }
 
   auto it = error_state_tracker_.find(name);
   TRY_ASSERT_MAIN_THREAD {
@@ -426,7 +464,8 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
 bool ListenerManagerImpl::addOrUpdateListenerInternal(
     const envoy::config::listener::v3::Listener& config, const std::string& version_info,
     bool added_via_api, const std::string& name) {
-
+  
+  // 判断是不是当前已经停止相关方向上 listener
   if (listenersStopped(config)) {
     ENVOY_LOG(
         debug,
@@ -436,6 +475,13 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
   }
 
   const uint64_t hash = MessageUtil::hash(config);
+  // 下面是 envoy 的一段日志, 而整个 envoy 中调用 addOrUpdateListenerInternal 的地方只有一处。
+  // 从代码可以理解, 前两个 listener 应该对应 /etc/istio/proxy/envoy-rev0.json 下的 15021 和 15090 两个端口,
+  // 而后面其他的端口, 应该是 istio 下发给 envoy 的 config 生成的。
+//  2023-01-31T07:27:42.413628Z	debug	envoy config	begin add/update listener: name=d93db229-0369-43d0-922f-8604a59bd538 hash=2200412303323231031
+//  2023-01-31T07:27:42.419035Z	debug	envoy config	begin add/update listener: name=4fce188a-7039-4919-996b-3f630095ae7d hash=9872086206848846795
+//  2023-01-31T07:27:47.790338Z	debug	envoy config	begin add/update listener: name=10.0.68.89_443 hash=6143915668597465087
+//  2023-01-31T07:27:47.793751Z	debug	envoy config	begin add/update listener: name=10.0.69.78_5125 hash=2011233370677522600
   ENVOY_LOG(debug, "begin add/update listener: name={} hash={}", name, hash);
 
   auto existing_active_listener = getListenerByName(active_listeners_, name);
@@ -443,6 +489,7 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
 
   // The listener should be updated back to its original state and the warming listener should be
   // removed.
+  // 如果某个 listener 正在 active, 也正在 warm, 但是又不允许更新, 则直接擦除 warm 列表中对应的 listener
   if (existing_warming_listener != warming_listeners_.end() &&
       existing_active_listener != active_listeners_.end() &&
       (*existing_active_listener)->blockUpdate(hash)) {
@@ -454,6 +501,7 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
 
   // Do a quick blocked update check before going further. This check needs to be done against both
   // warming and active.
+  // 如果不允许被更新, 则不进行更新
   if ((existing_warming_listener != warming_listeners_.end() &&
        (*existing_warming_listener)->blockUpdate(hash)) ||
       (existing_active_listener != active_listeners_.end() &&
@@ -464,6 +512,7 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
 
   ListenerImplPtr new_listener = nullptr;
 
+  // 生成新的 listener
   // In place filter chain update depends on the active listener at worker.
   if (existing_active_listener != active_listeners_.end() &&
       (*existing_active_listener)->supportUpdateFilterChain(config, workers_started_)) {
@@ -478,8 +527,35 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
                                                   workers_started_, hash);
   }
 
+  // 引用
   ListenerImpl& new_listener_ref = *new_listener;
 
+//  // We mandate that a listener with the same name must have the same configured address. This
+//  // avoids confusion during updates and allows us to use the same bound address. Note that in
+//  // the case of port 0 binding, the new listener will implicitly use the same bound port from
+//  // the existing listener.
+//  bool active_listener_exists = false;
+//  bool warming_listener_exists = false;
+//  if (existing_warming_listener != warming_listeners_.end() &&
+//      *(*existing_warming_listener)->address() != *new_listener->address()) {
+//    warming_listener_exists = true;
+//  }
+//  if (existing_active_listener != active_listeners_.end() &&
+//      *(*existing_active_listener)->address() != *new_listener->address()) {
+//    active_listener_exists = true;
+//  }
+//  if (active_listener_exists || warming_listener_exists) {
+//    const std::string message =
+//        fmt::format("error updating listener: '{}' has a different address '{}' from existing "
+//                    "listener address '{}'",
+//                    name, new_listener->address()->asString(),
+//                    warming_listener_exists ? (*existing_warming_listener)->address()->asString()
+//                                            : (*existing_active_listener)->address()->asString());
+//    ENVOY_LOG(warn, "{}", message);
+//    throw EnvoyException(message);
+//  }
+
+  // 真正的更新逻辑
   bool added = false;
   if (existing_warming_listener != warming_listeners_.end()) {
     // In this case we can just replace inline.
@@ -644,6 +720,7 @@ bool ListenerManagerImpl::doFinalPreWorkerListenerInit(ListenerImpl& listener) {
   }
 }
 
+// startWorkers 调用该方法时, overridden_listener == null
 void ListenerManagerImpl::addListenerToWorker(Worker& worker,
                                               absl::optional<uint64_t> overridden_listener,
                                               ListenerImpl& listener,
@@ -651,6 +728,7 @@ void ListenerManagerImpl::addListenerToWorker(Worker& worker,
   if (overridden_listener.has_value()) {
     ENVOY_LOG(debug, "replacing existing listener {}", overridden_listener.value());
   }
+
   worker.addListener(
       overridden_listener, listener,
       [this, completion_callback]() -> void {
@@ -658,6 +736,30 @@ void ListenerManagerImpl::addListenerToWorker(Worker& worker,
         // avoid locking.
         server_.dispatcher().post([this, completion_callback]() -> void {
           stats_.listener_create_success_.inc();
+        // worker 线程完成添加侦听器后。在主线程中执行该 callback 方法, 防止竞争。
+//        server_.dispatcher().post([this, success, &listener, completion_callback]() -> void {
+//          // It is possible for a listener to get added on 1 worker but not the others. The below
+//          // check with onListenerCreateFailure() is there to ensure we execute the
+//          // removal/logging/stats at most once on failure. Note also that drain/removal can race
+//          // with addition. It's guaranteed that workers process remove after add so this should be
+//          // fine.
+//          //
+//          // TODO(mattklein123): We should consider rewriting how listener sockets are added to
+//          // workers, especially in the case of reuse port. If we were to create all needed
+//          // listener sockets on the main thread (even in the case of reuse port) we could catch
+//          // almost all socket errors here. This would both greatly simplify the logic and allow
+//          // for xDS NACK in most cases.
+//          // listener 可能添加到 1 个 worker 而不是所有 worker。
+//          // 下面的 onListenerCreateFailure() 检查是为了确保我们在失败时最多执行一次删除/记录/统计。
+//          if (!success && !listener.onListenerCreateFailure()) {
+//            ENVOY_LOG(error, "listener '{}' failed to listen on address '{}' on worker",
+//                      listener.name(), listener.listenSocketFactory().localAddress()->asString());
+//            stats_.listener_create_failure_.inc();
+//            removeListenerInternal(listener.name(), false);
+//          }
+//          if (success) {
+//            stats_.listener_create_success_.inc();
+//          }
           if (completion_callback) {
             completion_callback();
           }
@@ -827,6 +929,7 @@ bool ListenerManagerImpl::removeListenerInternal(const std::string& name,
   return true;
 }
 
+// ListenerManagerImpl 的启动逻辑
 void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()> callback) {
   ENVOY_LOG(info, "all dependencies initialized. starting workers");
   ASSERT(!workers_started_);
@@ -855,6 +958,12 @@ void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()
       continue;
     }
     for (const auto& worker : workers_) {
+  // 这里两个 for 循环, 给所有的 work 绑定了所有的 active_listeners_
+//  for (const auto& worker : workers_) {
+//    ENVOY_LOG(debug, "starting worker {}", i);
+//    ASSERT(warming_listeners_.empty());
+//    for (const auto& listener : active_listeners_) {
+      // 这里传递的 overridden_listener == null
       addListenerToWorker(*worker, absl::nullopt, *listener,
                           [this, listeners_pending_init, callback]() {
                             if (--(*listeners_pending_init) == 0) {
@@ -867,6 +976,8 @@ void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()
   for (const auto& worker : workers_) {
     ENVOY_LOG(debug, "starting worker {}", i);
     worker->start(guard_dog, worker_started_running);
+    // 启动 worker
+    // worker->start(guard_dog);
     if (enable_dispatcher_stats_) {
       worker->initializeStats(*scope_);
     }
@@ -938,7 +1049,9 @@ ListenerFilterChainFactoryBuilder::ListenerFilterChainFactoryBuilder(
     ListenerImpl& listener,
     Server::Configuration::TransportSocketFactoryContextImpl& factory_context)
     : listener_(listener), validator_(listener.validation_visitor_),
-      listener_component_factory_(listener.parent_.factory_), factory_context_(factory_context) {}
+      listener_component_factory_(listener.parent_.factory_), factory_context_(factory_context) {
+
+}
 
 Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildFilterChain(
     const envoy::config::listener::v3::FilterChain& filter_chain,
@@ -947,12 +1060,21 @@ Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildF
                                   context_creator.createFilterChainFactoryContext(&filter_chain));
 }
 
+// 根据 listener 下的 filterChain 进行构建.
+// 针对 http 请求而言, 一般一个 listener 下面有两个 filterChain, 一个是 filter_chains 另一个是 default_filter_chain。
+// filter_chains 对应的 filters 叫做 envoy.filters.network.http_connection_manager, 在这个 http_connection_manager 下面再包含 http_filters。
+// default_filter_chain 对应的 filters 叫做 envoy.filters.network.tcp_proxy
 Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildFilterChainInternal(
     const envoy::config::listener::v3::FilterChain& filter_chain,
     Configuration::FilterChainFactoryContextPtr&& filter_chain_factory_context) const {
   // If the cluster doesn't have transport socket configured, then use the default "raw_buffer"
   // transport socket or BoringSSL-based "tls" transport socket if TLS settings are configured.
   // We copy by value first then override if necessary.
+//  if (listener_.parent_.getTcloudMap()) {
+//    ENVOY_LOG(debug, "tcloud 2 envoy/source/server/listener_manager_impl.cc listener.parent_.getTcloudMap() tcloud_map is not null");
+//  } else {
+//    ENVOY_LOG(debug, "tcloud 2 envoy/source/server/listener_manager_impl.cc listener.parent_.getTcloudMap() tcloud_map is null");
+//  }
   auto transport_socket = filter_chain.transport_socket();
   if (!filter_chain.has_transport_socket()) {
     envoy::extensions::transport_sockets::raw_buffer::v3::RawBuffer raw_buffer;
@@ -963,6 +1085,7 @@ Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildF
   auto& config_factory = Config::Utility::getAndCheckFactory<
       Server::Configuration::DownstreamTransportSocketConfigFactory>(transport_socket);
   // The only connection oriented UDP transport protocol right now is QUIC.
+  // 目前 QUIC 是唯一的使用 UDP 的协议
   const bool is_quic =
       listener_.udpListenerConfig().has_value() &&
       !listener_.udpListenerConfig()->listenerFactory().isTransportConnectionless();
@@ -996,6 +1119,8 @@ Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildF
   std::vector<std::string> server_names(filter_chain.filter_chain_match().server_names().begin(),
                                         filter_chain.filter_chain_match().server_names().end());
 
+  // 初始化了 filterChain
+  // 这里面的 createNetworkFilterFactoryList 返回的 callback 也只是被保存了起来。
   auto filter_chain_res = std::make_shared<FilterChainImpl>(
       config_factory.createTransportSocketFactory(*message, factory_context_,
                                                   std::move(server_names)),

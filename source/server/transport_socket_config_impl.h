@@ -15,10 +15,11 @@ public:
   TransportSocketFactoryContextImpl(Server::Configuration::ServerFactoryContext& server_context,
                                     Ssl::ContextManager& context_manager, Stats::Scope& stats_scope,
                                     Upstream::ClusterManager& cm, Stats::Store& stats,
-                                    ProtobufMessage::ValidationVisitor& validation_visitor)
+                                    ProtobufMessage::ValidationVisitor& validation_visitor,
+                                    std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr)
       : server_context_(server_context), context_manager_(context_manager),
         stats_scope_(stats_scope), cluster_manager_(cm), stats_(stats),
-        validation_visitor_(validation_visitor) {}
+        validation_visitor_(validation_visitor), tcloud_map_(tcloud_map) {}
 
   /**
    * Pass an init manager to register dynamic secret provider.
@@ -54,6 +55,9 @@ public:
     return server_context_.accessLogManager();
   }
 
+  // tcloud 泳道
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override { return tcloud_map_; }
+
 private:
   Server::Configuration::ServerFactoryContext& server_context_;
   Ssl::ContextManager& context_manager_;
@@ -62,6 +66,9 @@ private:
   Stats::Store& stats_;
   Init::Manager* init_manager_{};
   ProtobufMessage::ValidationVisitor& validation_visitor_;
+
+  // tcloud 泳道
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 } // namespace Configuration

@@ -127,6 +127,8 @@ public:
   void initialize(Upstream::Host::CreateConnectionData& data, HttpConnPoolImplBase& parent) {
     real_host_description_ = data.host_description_;
     codec_client_ = parent.createCodecClient(data);
+    // 设置 ConnectionCallbacks
+    // 设置完成后，调用就是通过调用相应的 onEvent 方法。
     codec_client_->addConnectionCallbacks(*this);
     codec_client_->setConnectionStats(
         {parent_.host()->cluster().stats().upstream_cx_rx_bytes_total_,
@@ -177,6 +179,7 @@ public:
     return codec_fn_(data, this);
   }
 
+  // instantiateActiveClient 实现, 调用 client_fn_
   Envoy::ConnectionPool::ActiveClientPtr instantiateActiveClient() override {
     return client_fn_(this);
   }

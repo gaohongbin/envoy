@@ -43,6 +43,7 @@ namespace Upstream {
  * ClusterUpdateCallbacks provide a way to expose Cluster lifecycle events in the
  * ClusterManager.
  */
+ // ClusterUpdateCallbacks 将 Cluster 的生命周期进行暴露
 class ClusterUpdateCallbacks {
 public:
   virtual ~ClusterUpdateCallbacks() = default;
@@ -53,12 +54,14 @@ public:
    * @param cluster is the ThreadLocalCluster that represents the updated
    * cluster.
    */
+   // 添加或者更新 cluster 时 callback
   virtual void onClusterAddOrUpdate(ThreadLocalCluster& cluster) PURE;
 
   /**
    * onClusterRemoval is called when a cluster is removed; the argument is the cluster name.
    * @param cluster_name is the name of the removed cluster.
    */
+   // 删除 cluster 时进行 callback
   virtual void onClusterRemoval(const std::string& cluster_name) PURE;
 };
 
@@ -66,6 +69,8 @@ public:
  * ClusterUpdateCallbacksHandle is a RAII wrapper for a ClusterUpdateCallbacks. Deleting
  * the ClusterUpdateCallbacksHandle will remove the callbacks from ClusterManager in O(1).
  */
+ // ClusterUpdateCallbacksHandle 是对 ClusterUpdateCallbacks 的封装。
+ // 从 ClusterManager 中删除 ClusterUpdateCallbacksHandle 就删除了回调操作。
 class ClusterUpdateCallbacksHandle {
 public:
   virtual ~ClusterUpdateCallbacksHandle() = default;
@@ -146,6 +151,7 @@ using OdCdsApiHandlePtr = std::unique_ptr<OdCdsApiHandle>;
 class ClusterManagerFactory;
 
 // These are per-cluster per-thread, so not "global" stats.
+// 非全局数据, 细节先跳过
 struct ClusterConnectivityState {
   ~ClusterConnectivityState() {
     ASSERT(pending_streams_ == 0);
@@ -204,6 +210,11 @@ struct ClusterConnectivityState {
  * In the second phase all secondary clusters (with endpoint assignments provisioned by xDS servers)
  * are initialized and then the rest of the configuration provisioned through xDS.
  */
+ // 管理上游集群的连接池和负载平衡。
+ // 集群管理器是持久的，并在多个正在进行的请求/连接之间共享。
+ // ClusterManager 的初始化分为两个阶段:
+ // 1、 all primary clusters 也就是主集群, 这些集群通过静态配置作为启动配置, 主集群加载完成后, 会调用 setPrimaryClustersInitializedCb 设置的回调。
+ // 2、 动态集群, 在完成主集群的加载后, ClusterManager 需要完成动态集群的加载。
 class ClusterManager {
 public:
   using PrimaryClustersReadyCallback = std::function<void()>;
@@ -221,17 +232,22 @@ public:
    * @param version_info supplies the xDS version of the cluster.
    * @return true if the action results in an add/update of a cluster.
    */
+   // 该方法执行两个步骤:
+   // 1、通过 hash 判断一个 cluster config 是否发生变化。
+   // 2、静态定义的 cluster 不允许被修改。
   virtual bool addOrUpdateCluster(const envoy::config::cluster::v3::Cluster& cluster,
                                   const std::string& version_info) PURE;
 
   /**
    * Set a callback that will be invoked when all primary clusters have been initialized.
    */
+   // 所有的主集群初始化完成后调用该 callback
   virtual void setPrimaryClustersInitializedCb(PrimaryClustersReadyCallback callback) PURE;
 
   /**
    * Set a callback that will be invoked when all owned clusters have been initialized.
    */
+   // 所有集群初始化完成后调用该 callback
   virtual void setInitializedCb(InitializationCompleteCallback callback) PURE;
 
   /**
@@ -239,6 +255,7 @@ public:
    * The "initialized callback" set in the method above is invoked when secondary and
    * dynamically provisioned clusters have finished initializing.
    */
+   // 开始初始化第二阶段的 cluster
   virtual void
   initializeSecondaryClusters(const envoy::config::bootstrap::v3::Bootstrap& bootstrap) PURE;
 
@@ -283,6 +300,7 @@ public:
    *         xDS API config sources. These must be static (i.e. in the
    *         bootstrap) and non-EDS.
    */
+   // 返回主集群
   virtual const ClusterSet& primaryClusters() PURE;
 
   /**
@@ -299,6 +317,7 @@ public:
    * propagated to workers, etc.). Use clusters() for general configuration checking on the main
    * thread.
    */
+   // TODO 还有点迷糊
   virtual ThreadLocalCluster* getThreadLocalCluster(absl::string_view cluster) PURE;
 
   /**
@@ -313,6 +332,7 @@ public:
   /**
    * Shutdown the cluster manager prior to destroying connection pools and other thread local data.
    */
+   // 在销毁连接池和其他线程本地数据之前关闭集群管理器。
   virtual void shutdown() PURE;
 
   /**
@@ -436,6 +456,7 @@ using ClusterManagerPtr = std::unique_ptr<ClusterManager>;
 /**
  * Abstract interface for a CDS API provider.
  */
+ // CdsApi 的接口类
 class CdsApi {
 public:
   virtual ~CdsApi() = default;
@@ -469,6 +490,7 @@ public:
   /**
    * Allocate a cluster manager from configuration proto.
    */
+   // 根据 bootstrap 配置生成 cluster manager
   virtual ClusterManagerPtr
   clusterManagerFromProto(const envoy::config::bootstrap::v3::Bootstrap& bootstrap) PURE;
 
@@ -476,6 +498,7 @@ public:
    * Allocate an HTTP connection pool for the host. Pools are separated by 'priority',
    * 'protocol', and 'options->hashKey()', if any.
    */
+   // 根据 host 分配 HTTP connection pool
   virtual Http::ConnectionPool::InstancePtr
   allocateConnPool(Event::Dispatcher& dispatcher, HostConstSharedPtr host,
                    ResourcePriority priority, std::vector<Http::Protocol>& protocol,
@@ -490,6 +513,7 @@ public:
    * Allocate a TCP connection pool for the host. Pools are separated by 'priority' and
    * 'options->hashKey()', if any.
    */
+   // 根据 host 分配 TCP connection pool
   virtual Tcp::ConnectionPool::InstancePtr
   allocateTcpConnPool(Event::Dispatcher& dispatcher, HostConstSharedPtr host,
                       ResourcePriority priority,
@@ -500,6 +524,7 @@ public:
   /**
    * Allocate a cluster from configuration proto.
    */
+   // 根据 cluster 配置返回 cluster
   virtual std::pair<ClusterSharedPtr, ThreadAwareLoadBalancerPtr>
   clusterFromProto(const envoy::config::cluster::v3::Cluster& cluster, ClusterManager& cm,
                    Outlier::EventLoggerSharedPtr outlier_event_logger, bool added_via_api) PURE;
@@ -507,6 +532,7 @@ public:
   /**
    * Create a CDS API provider from configuration proto.
    */
+   // 根据 cds config 返回 CdsApi
   virtual CdsApiPtr createCds(const envoy::config::core::v3::ConfigSource& cds_config,
                               const xds::core::v3::ResourceLocator* cds_resources_locator,
                               ClusterManager& cm) PURE;

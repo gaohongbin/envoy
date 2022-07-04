@@ -23,6 +23,7 @@ namespace Config {
  * growth based on the size of the configuration set, regardless of the number of threads/objects
  * that must hold a reference/pointer to them.
  */
+ // 从名字可知, 是 ConfigProvider 的管理器。
 class ConfigProviderManager {
 public:
   class OptionalArg {

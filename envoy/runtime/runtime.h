@@ -216,6 +216,7 @@ using SnapshotConstSharedPtr = std::shared_ptr<const Snapshot>;
 /**
  * Loads runtime snapshots from storage (local disk, etc.).
  */
+// 从存储（本地磁盘等）加载运行时快照。
 class Loader {
 public:
   virtual ~Loader() = default;

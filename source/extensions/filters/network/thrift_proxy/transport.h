@@ -99,6 +99,7 @@ public:
    * @param TransportType the transport type
    * @return NamedTransportConfigFactory& for the TransportType
    */
+   // 这是一个静态方法
   static NamedTransportConfigFactory& getFactory(TransportType type) {
     const std::string& name = TransportNames::get().fromType(type);
     return Envoy::Config::Utility::getAndCheckFactoryByName<NamedTransportConfigFactory>(name);

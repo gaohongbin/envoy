@@ -23,6 +23,9 @@ ActiveTcpClient::ActiveTcpClient(Envoy::ConnectionPool::ConnPoolImplBase& parent
   real_host_description_ = data.host_description_;
   connection_ = std::move(data.connection_);
   connection_->addConnectionCallbacks(*this);
+
+  // 从这里可以看出来, 这里给 connection_ 增加的 ReadFilter 是 ActiveTcpClient 本身
+  // 所以 connection_ 返回 rsp 回调的是 ActiveTcpClient 的 OnData 方法。
   read_filter_handle_ = std::make_shared<ConnReadFilter>(*this);
   connection_->addReadFilter(read_filter_handle_);
   connection_->setConnectionStats({host->cluster().stats().upstream_cx_rx_bytes_total_,
@@ -31,6 +34,7 @@ ActiveTcpClient::ActiveTcpClient(Envoy::ConnectionPool::ConnPoolImplBase& parent
                                    host->cluster().stats().upstream_cx_tx_bytes_buffered_,
                                    &host->cluster().stats().bind_errors_, nullptr});
   connection_->noDelay(true);
+  // 然后再去建立连接
   connection_->connect();
 }
 
@@ -68,6 +72,8 @@ void ActiveTcpClient::onEvent(Network::ConnectionEvent event) {
   ENVOY_BUG(event != Network::ConnectionEvent::ConnectedZeroRtt,
             "Unexpected 0-RTT event from the underlying TCP connection.");
   parent_.onConnectionEvent(*this, connection_->transportFailureReason(), event);
+  //
+  // Envoy::ConnectionPool::ActiveClient::onEvent(event);
   if (callbacks_) {
     // Do not pass the Connected event to any session which registered during onEvent above.
     // Consumers of connection pool connections assume they are receiving already connected

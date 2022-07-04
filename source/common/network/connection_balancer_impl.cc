@@ -16,6 +16,8 @@ void ExactConnectionBalancerImpl::unregisterHandler(BalancedConnectionHandler& h
   handlers_.erase(std::find(handlers_.begin(), handlers_.end(), &handler));
 }
 
+
+// 挑选出连接数最少的 handler 来处理 connection
 BalancedConnectionHandler&
 ExactConnectionBalancerImpl::pickTargetHandler(BalancedConnectionHandler&) {
   BalancedConnectionHandler* min_connection_handler = nullptr;

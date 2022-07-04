@@ -24,14 +24,30 @@ bool ConsumerGroupMember::expired() const {
          connection_manager_->config().transientObjectLifeSpan().count();
 }
 
-ConnectionManager::ConnectionManager(Config& config, TimeSource& time_source)
-    : config_(config), time_source_(time_source), stats_(config.stats()) {}
+ConnectionManager::ConnectionManager(Config& config, TimeSource& time_source, std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map)
+    : config_(config), time_source_(time_source), stats_(config.stats()), tcloud_map_(tcloud_map) {
+      if (tcloud_map) {
+        ENVOY_LOG(debug, "tcloud RocketMQ ConnectionManagerImpl tcloud_map is not null");
+      } else {
+        ENVOY_LOG(debug, "tcloud RocketMQ ConnectionManagerImpl tcloud_map is null");
+      }
 
+      if (tcloud_map_) {
+        ENVOY_LOG(debug, "tcloud RocketMQ ConnectionManagerImpl tcloud_map_ is not null");
+      } else {
+        ENVOY_LOG(debug, "tcloud RocketMQ ConnectionManagerImpl tcloud_map_ is null");
+      }
+    }
+
+ // TODO 能确保这里处理的只有 request 吗？ 没有 rsp ？
+ // TODO 看一下 read_callbacks_->connection() 的逻辑,
 Envoy::Network::FilterStatus ConnectionManager::onData(Envoy::Buffer::Instance& data,
                                                        bool end_stream) {
   ENVOY_CONN_LOG(trace, "rocketmq_proxy: received {} bytes.", read_callbacks_->connection(),
                  data.length());
+  // 将数据从 data 移动到 request_buffer_
   request_buffer_.move(data);
+  // 进行数据处理
   dispatch();
   if (end_stream) {
     resetAllActiveMessages("Connection to downstream is closed");
@@ -50,6 +66,8 @@ void ConnectionManager::dispatch() {
   bool underflow = false;
   bool has_decode_error = false;
   while (!underflow) {
+    // decode RocketMQ 的 header
+    // TODO 怎么确保这里处理的都是 request, 如果也可能是 rsp 的话, 那 rsp->code 可能是 0 啊, 后面不就报错了吗？ 
     RemotingCommandPtr request = Decoder::decode(request_buffer_, underflow, has_decode_error);
     if (underflow) {
       // Wait for more data
@@ -69,6 +87,7 @@ void ConnectionManager::dispatch() {
       stats_.request_decoding_success_.inc();
     }
 
+    // sendMsg 的 code 应为 310 (V2) 或 10
     switch (static_cast<RequestCode>(request->code())) {
     case RequestCode::GetRouteInfoByTopic: {
       ENVOY_CONN_LOG(trace, "GetTopicRoute request, code: {}, opaque: {}",
@@ -82,6 +101,8 @@ void ConnectionManager::dispatch() {
       onUnregisterClient(std::move(request));
     } break;
 
+
+    // code = 10
     case RequestCode::SendMessage: {
       ENVOY_CONN_LOG(trace, "SendMessage request, code: {}, opaque: {}",
                      read_callbacks_->connection(), request->code(), request->opaque());
@@ -89,6 +110,7 @@ void ConnectionManager::dispatch() {
       stats_.send_message_v1_.inc();
     } break;
 
+    // code = 310
     case RequestCode::SendMessageV2: {
       ENVOY_CONN_LOG(trace, "SendMessage request, code: {}, opaque: {}",
                      read_callbacks_->connection(), request->code(), request->opaque());
@@ -102,6 +124,8 @@ void ConnectionManager::dispatch() {
       onGetConsumerListByGroup(std::move(request));
     } break;
 
+      // PopMessage 是 RocketMQ 5.0 新增的一种消费模式
+      // code = 50
     case RequestCode::PopMessage: {
       ENVOY_CONN_LOG(trace, "PopMessage request, code: {}, opaque: {}",
                      read_callbacks_->connection(), request->code(), request->opaque());
@@ -116,6 +140,7 @@ void ConnectionManager::dispatch() {
       stats_.ack_message_.inc();
     } break;
 
+    // code = 34
     case RequestCode::HeartBeat: {
       ENVOY_CONN_LOG(trace, "Heartbeat request, opaque: {}", read_callbacks_->connection(),
                      request->opaque());
@@ -147,10 +172,12 @@ void ConnectionManager::purgeDirectiveTable() {
 
 void ConnectionManager::sendResponseToDownstream(RemotingCommandPtr& response) {
   Buffer::OwnedImpl buffer;
+  // 先调用 encode 将 response 转换成网络传输的格式
   Encoder::encode(response, buffer);
   if (read_callbacks_->connection().state() == Network::Connection::State::Open) {
     ENVOY_CONN_LOG(trace, "Write response to downstream. Opaque: {}", read_callbacks_->connection(),
                    response->opaque());
+    // 将 buffer 写入 connection
     read_callbacks_->connection().write(buffer, false);
   } else {
     ENVOY_CONN_LOG(error, "Send response to downstream failed as connection is no longer open",
@@ -163,7 +190,12 @@ void ConnectionManager::onGetTopicRoute(RemotingCommandPtr request) {
   stats_.get_topic_route_.inc();
 }
 
+// 是不是 serviceMesh 以后, 其实不需要心跳了, 但是为了兼容 SDK, 所以 sidecar 应付式的回复了一个 rsp
 void ConnectionManager::onHeartbeat(RemotingCommandPtr request) {
+  // heartBeat 是 consumer 和 producer 发送给 broker 的。
+  // 下面这是一个例子, 第一行是 header,  第二行是 body
+  // {"code":34,"flag":0,"language":"JAVA","opaque":365932,"serializeTypeCurrentRPC":"JSON","version":373}
+  // {"clientID":"10.0.135.201@com.zhipin.rcd.arsenal.tcloud.swim.RocketMQSwim","consumerDataSet":[{"consumeFromWhere":"CONSUME_FROM_LAST_OFFSET","consumeType":"CONSUME_PASSIVELY","groupName":"gaohongbin_consumer_group_0","messageModel":"CLUSTERING","subscriptionDataSet":[{"classFilterMode":false,"codeSet":[],"expressionType":"TAG","subString":"*","subVersion":1680444498755,"tagsSet":[],"topic":"gaohongbin-test"},{"classFilterMode":false,"codeSet":[],"expressionType":"TAG","subString":"*","subVersion":1680444498681,"tagsSet":[],"topic":"%RETRY%gaohongbin_consumer_group_0"}],"unitMode":false},{"consumeFromWhere":"CONSUME_FROM_LAST_OFFSET","consumeType":"CONSUME_PASSIVELY","groupName":"gaohongbin_consumer_group_1","messageModel":"CLUSTERING","subscriptionDataSet":[{"classFilterMode":false,"codeSet":[],"expressionType":"TAG","subString":"*","subVersion":1680444498791,"tagsSet":[],"topic":"%RETRY%gaohongbin_consumer_group_1"},{"classFilterMode":false,"codeSet":[],"expressionType":"TAG","subString":"*","subVersion":1680444498784,"tagsSet":[],"topic":"swim-yanshi%empty"}],"unitMode":false}],"producerDataSet":[{"groupName":"CLIENT_INNER_PRODUCER"}]}
   const std::string& body = request->body().toString();
 
   purgeDirectiveTable();
@@ -186,6 +218,7 @@ void ConnectionManager::onHeartbeat(RemotingCommandPtr request) {
     addOrUpdateGroupMember(group, heartbeatData.clientId());
   }
 
+  // envoy 直接就生成了 response ？
   RemotingCommandPtr response = std::make_unique<RemotingCommand>();
   response->code(enumToSignedInt(ResponseCode::Success));
   response->opaque(request->opaque());
@@ -268,11 +301,17 @@ void ConnectionManager::onError(RemotingCommandPtr& request, absl::string_view e
 void ConnectionManager::onSendMessage(RemotingCommandPtr request) {
   ENVOY_CONN_LOG(trace, "#onSendMessage, opaque: {}", read_callbacks_->connection(),
                  request->opaque());
+  // request 的 customHeader 本来就是通过 SendMessageRequestHeader 赋值的, 现在又换回去了。
   auto header = request->typedCustomHeader<SendMessageRequestHeader>();
+  // 这里针对 request 做了修改
   header->queueId(-1);
+  // TODO 应该在这里处理 properties, 通过读取 sw8 来插入 tcloud-lane 属性
+  // ... 处理逻辑
   createActiveMessage(request).sendRequestToUpstream();
 }
 
+// 这个也是直接生成 response。
+// 这里应该是 pilot 控制面将 NameServer 的数据下发给了 envoy, 所以 envoy 本地能够获取到相应的数据。
 void ConnectionManager::onGetConsumerListByGroup(RemotingCommandPtr request) {
   auto requestExtHeader = request->typedCustomHeader<GetConsumerListByGroupRequestHeader>();
 

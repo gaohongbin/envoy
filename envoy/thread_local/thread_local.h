@@ -211,6 +211,7 @@ template <class T = ThreadLocalObject> using TypedSlotPtr = std::unique_ptr<Type
 /**
  * Interface for getting and setting thread local data as well as registering a thread
  */
+// Instance: 通过将 线程 与 Instance 进行绑定。然后就可以通过 set 与 get 获取线程本地数据。
 class Instance : public SlotAllocator {
 public:
   /**
@@ -221,6 +222,7 @@ public:
    *                    difference is that callbacks fire immediately on the main thread when posted
    *                    from the main thread).
    */
+  // 必须先将 thread 进行注册, 才可以使用 set() 方法。 一般当线程数据有变化时,通过 set() 进行设置, 然后触发相应的 dispatcher。
   virtual void registerThread(Event::Dispatcher& dispatcher, bool main_thread) PURE;
 
   /**

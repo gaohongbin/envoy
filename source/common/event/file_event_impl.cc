@@ -29,9 +29,13 @@ FileEventImpl::FileEventImpl(DispatcherImpl& dispatcher, os_fd_t fd, FileReadyCb
   }
 
   assignEvents(events, &dispatcher.base());
+  // int event_add(struct event *ev, const struct timeval *tv);
+  // 在非未决的事件上调用 event_add()将使其在配置的 event_base 中成为未决的。成功时 函数返回0,失败时返回-1。
+  // 如果 tv 为 NULL,添加的事件不会超时。否则, tv 以秒和微秒指定超时值。
   event_add(&raw_event_, nullptr);
 }
 
+// 手动激活某个事件
 void FileEventImpl::activate(uint32_t events) {
   ASSERT(dispatcher_.isThreadSafe());
 
@@ -57,6 +61,15 @@ void FileEventImpl::assignEvents(uint32_t events, event_base* base) {
   ASSERT(base != nullptr);
 
   enabled_events_ = events;
+  // event_assign 函数接口定义如下:
+  // int event_assign(struct event *ev, struct event_base *base, evutil_socket_t fd, short events, void (*callback)(evutil_socket_t, short, void *), void *arg)
+  //  该函数主要是给event结构体初始化赋值，绑定event_base、回调函数和回调函数参数、文件描述符以及标志位，中间判断持续化事件。
+  // @param ev：要修改的事件结构
+  // @param base ev应连接到的事件库。
+  // @param fd：要监视的文件描述符
+  // @param events：需要监视的事件；可以是EV_ READ和/或EV_
+  // @事件发生时要调用的回调函数
+  // @param callback_arg：要传递给回调函数的参数
   event_assign(
       &raw_event_, base, fd_,
       EV_PERSIST | (trigger_ == FileTriggerType::Edge ? EV_ET : 0) |
@@ -99,8 +112,11 @@ void FileEventImpl::updateEvents(uint32_t events) {
     return;
   }
   auto* base = event_get_base(&raw_event_);
+  // 先清理 raw_event_
   event_del(&raw_event_);
+  // 通过 assignEvents 更新 raw_event_
   assignEvents(events, base);
+  // 通过 event_add 将 raw_event_ 添加到 event_base 中
   event_add(&raw_event_, nullptr);
 }
 

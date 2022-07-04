@@ -12,6 +12,7 @@
 namespace Envoy {
 namespace Upstream {
 
+// 这不就是一些负载均衡的配置嘛
 /**
  * Type of load balancing to perform.
  */

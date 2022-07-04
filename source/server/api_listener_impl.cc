@@ -3,12 +3,22 @@
 #include "envoy/config/listener/v3/listener.pb.h"
 #include "envoy/stats/scope.h"
 
+
 #include "source/common/http/conn_manager_impl.h"
 #include "source/common/network/resolver_impl.h"
 #include "source/common/protobuf/utility.h"
 #include "source/extensions/filters/network/http_connection_manager/config.h"
 #include "source/server/drain_manager_impl.h"
 #include "source/server/listener_manager_impl.h"
+//#include "common/http/conn_manager_impl.h"
+//#include "common/network/resolver_impl.h"
+//#include "common/protobuf/utility.h"
+//#include "common/common/logger.h"
+//
+//#include "server/drain_manager_impl.h"
+//#include "server/listener_manager_impl.h"
+//
+//#include "extensions/filters/network/http_connection_manager/config.h"
 
 namespace Envoy {
 namespace Server {
@@ -54,6 +64,16 @@ HttpApiListener::HttpApiListener(const envoy::config::listener::v3::Listener& co
     auto typed_config = MessageUtil::anyConvertAndValidate<
         envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager>(
         config.api_listener().api_listener(), factory_context_.messageValidationVisitor());
+
+//  if (factory_context_.getTcloudMap()) {
+//    ENVOY_LOG(debug, "tcloud HttpApiListener::HttpApiListener factory_context_.getTcloudMap() is not null");
+//  } else {
+//    ENVOY_LOG(debug, "tcloud HttpApiListener::HttpApiListener factory_context_.getTcloudMap() is null");
+//  }
+
+//  auto typed_config = MessageUtil::anyConvertAndValidate<
+//      envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager>(
+//      config.api_listener().api_listener(), factory_context_.messageValidationVisitor());
 
     http_connection_manager_factory_ = Envoy::Extensions::NetworkFilters::HttpConnectionManager::
         HttpConnectionManagerFactory::createHttpConnectionManagerFactoryFromProto(

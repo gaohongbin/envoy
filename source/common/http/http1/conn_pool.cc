@@ -80,6 +80,23 @@ ActiveClient::ActiveClient(HttpConnPoolImplBase& parent,
 }
 
 ActiveClient::~ActiveClient() { ASSERT(!stream_wrapper_.get()); }
+//ActiveClient::ActiveClient(HttpConnPoolImplBase& parent)
+//    : Envoy::Http::ActiveClient(
+//          parent,
+//          parent.host()->cluster().maxRequestsPerConnection(),
+//          1 // HTTP1 always has a concurrent-request-limit of 1 per connection.
+//      ) {
+//  parent.host()->cluster().stats().upstream_cx_http1_total_.inc();
+//}
+//
+//ActiveClient::ActiveClient(HttpConnPoolImplBase& parent, Upstream::Host::CreateConnectionData& data)
+//    : Envoy::Http::ActiveClient(
+//          parent,
+//          parent.host()->cluster().maxRequestsPerConnection(),
+//          1, // HTTP1 always has a concurrent-request-limit of 1 per connection.
+//          data) {
+//  parent.host()->cluster().stats().upstream_cx_http1_total_.inc();
+//}
 
 bool ActiveClient::closingWithIncompleteStream() const {
   return (stream_wrapper_ != nullptr) && (!stream_wrapper_->decode_complete_);

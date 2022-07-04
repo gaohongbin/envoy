@@ -30,6 +30,7 @@
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/tracing/http_tracer.h"
 #include "envoy/upstream/cluster_manager.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 namespace Envoy {
 
@@ -49,16 +50,19 @@ public:
   /**
    * @return Admin& the global HTTP admin endpoint for the server.
    */
+   // 主要是处理 envoy 提供的一些 http 接口
   virtual Admin& admin() PURE;
 
   /**
    * @return Api::Api& the API used by the server.
    */
+   // 不同组件进行交互的一个接口, 类似于一个总管, 管理了一些组件
   virtual Api::Api& api() PURE;
 
   /**
    * @return Upstream::ClusterManager& singleton for use by the entire server.
    */
+   // 单例的 cluster manager
   virtual Upstream::ClusterManager& clusterManager() PURE;
 
   /**
@@ -75,6 +79,7 @@ public:
    * @return Event::Dispatcher& the main thread's dispatcher. This dispatcher should be used
    *         for all singleton processing.
    */
+   // Dispatcher 应该是单例的
   virtual Event::Dispatcher& dispatcher() PURE;
 
   /**
@@ -110,6 +115,7 @@ public:
   /**
    * @return the server's hot restarter.
    */
+   // 热重启回头看看, 后面如果要对 sidecar 和 evnoy 进行统一管理, 可以使用该功能
   virtual HotRestart& hotRestart() PURE;
 
   /**
@@ -120,6 +126,9 @@ public:
    *         listening. Once all targets have initialized and invoked their callbacks, the server
    *         will start listening.
    */
+   // 初始化各种组件, 这些组件的初始化时机处于下面两个组件之间:
+   // cluster manager 初始化之后
+   // listening 启动之前
   virtual Init::Manager& initManager() PURE;
 
   /**
@@ -135,6 +144,7 @@ public:
   /**
    * @return the server's overload manager.
    */
+   // overload manager 是什么后面看
   virtual OverloadManager& overloadManager() PURE;
 
   /**
@@ -286,6 +296,9 @@ public:
    */
   virtual void
   setSinkPredicates(std::unique_ptr<Envoy::Stats::SinkPredicates>&& sink_predicates) PURE;
+
+  // tcloud 泳道
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() PURE;
 };
 
 } // namespace Server

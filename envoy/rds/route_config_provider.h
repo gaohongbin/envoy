@@ -35,6 +35,8 @@ public:
    * each request flow.
    */
   virtual ConfigConstSharedPtr config() const PURE;
+   // Router::ConfigConstSharedPtr 在单个请求期间使用的路由配置。返回的配置在后续调用中可能会有所不同，因此应该为每个请求流获取一个新的配置。
+  // virtual Router::ConfigConstSharedPtr config() PURE;
 
   /**
    * @return the configuration information for the currently loaded route configuration. Note that
@@ -51,6 +53,7 @@ public:
   /**
    * Callback used to notify RouteConfigProvider about configuration changes.
    */
+   // 配置更新时进行回调
   virtual void onConfigUpdate() PURE;
 };
 

@@ -10,6 +10,8 @@ namespace Extensions {
 namespace NetworkFilters {
 namespace RocketmqProxy {
 
+// protocol.cc 是对 protocol.h 中定义的一些结构体的具体实现, 其实直接看 protocol.h 就可以了
+// 而且  protocol.h 还具有提纲挈领的作用。
 void SendMessageRequestHeader::encode(ProtobufWkt::Value& root) {
   auto& members = *(root.mutable_struct_value()->mutable_fields());
 
@@ -723,18 +725,25 @@ void GetConsumerListByGroupRequestHeader::decode(const ProtobufWkt::Value& ext_f
   consumer_group_ = members.at("consumerGroup").string_value();
 }
 
+// 将 RemotingCommand 的结构体解析为 MessageMetadata
 void MetadataHelper::parseRequest(RemotingCommandPtr& request, MessageMetadataSharedPtr metadata) {
+  // 设置 is_oneway_
   metadata->setOneWay(request->isOneWay());
+  // 获取对应的 extFields 自定义字段
   CommandCustomHeader* custom_header = request->customHeader();
 
+  //进行类型转换, 将 CommandCustomHeader -> RoutingCommandCustomHeader
   auto route_command_custom_header = request->typedCustomHeader<RoutingCommandCustomHeader>();
+  // 设置 topic_name_
   if (route_command_custom_header != nullptr) {
     metadata->setTopicName(route_command_custom_header->topic());
   }
 
+  // 获取 request 的 code
   const uint64_t code = request->code();
   metadata->headers().addCopy(Http::LowerCaseString("code"), code);
 
+  // 如果是 ack 消息, 则获取 brokerName 和 brokerId, 因为要将 ack 消息发送到之前通信过得 broker 上。
   if (enumToInt(RequestCode::AckMessage) == code) {
     metadata->headers().addCopy(Http::LowerCaseString(RocketmqConstants::get().BrokerName),
                                 custom_header->targetBrokerName());

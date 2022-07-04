@@ -106,6 +106,7 @@ float ConnPoolImplBase::perUpstreamPreconnectRatio() const {
   return host_->cluster().perUpstreamPreconnectRatio();
 }
 
+// 这就是封装了一个循环
 ConnPoolImplBase::ConnectionResult ConnPoolImplBase::tryCreateNewConnections() {
   ASSERT(!is_draining_for_deletion_);
   ConnPoolImplBase::ConnectionResult result;
@@ -116,6 +117,8 @@ ConnPoolImplBase::ConnectionResult ConnPoolImplBase::tryCreateNewConnections() {
   // many connections are desired when the host becomes healthy again, but
   // overwhelming it with connections is not desirable.
   for (int i = 0; i < 3; ++i) {
+    // 卧槽, 这两个方法不一样
+    // tryCreateNewConnection 默认传一个参数 0
     result = tryCreateNewConnection();
     if (result != ConnectionResult::CreatedNewConnection) {
       break;
@@ -140,9 +143,13 @@ ConnPoolImplBase::tryCreateNewConnection(float global_preconnect_ratio) {
   // If we are at the connection circuit-breaker limit due to other upstreams having
   // too many open connections, and this upstream has no connections, always create one, to
   // prevent pending streams being queued to this upstream with no way to be processed.
+// 初始化一个 ActiveClient
+// ActiveClient 扮演的是 envoy 去连接上游时的一个管理角色
+// instantiateActiveClient 是在子类中实现的。
   if (can_create_connection || (ready_clients_.empty() && busy_clients_.empty() &&
                                 connecting_clients_.empty() && early_data_clients_.empty())) {
     ENVOY_LOG(debug, "creating a new connection (connecting={})", connecting_clients_.size());
+
     ActiveClientPtr client = instantiateActiveClient();
     if (client.get() == nullptr) {
       ENVOY_LOG(trace, "connection creation failed");
@@ -153,6 +160,7 @@ ConnPoolImplBase::tryCreateNewConnection(float global_preconnect_ratio) {
            static_cast<uint64_t>(client->currentUnusedCapacity()));
     ASSERT(client->real_host_description_);
     // Increase the connecting capacity to reflect the streams this connection can serve.
+    // 将新创建的 client 根据状态分类管理起来。
     incrConnectingAndConnectedStreamCapacity(client->currentUnusedCapacity(), *client);
     LinkedList::moveIntoList(std::move(client), owningList(client->state()));
     return can_create_connection ? ConnectionResult::CreatedNewConnection
@@ -259,6 +267,7 @@ ConnectionPool::Cancellable* ConnPoolImplBase::newStreamImpl(AttachContext& cont
   ASSERT(static_cast<ssize_t>(connecting_stream_capacity_) ==
          connectingCapacity(connecting_clients_) +
              connectingCapacity(early_data_clients_)); // O(n) debug check.
+  // 如果 conn_pool 中存在空闲 client
   if (!ready_clients_.empty()) {
     ActiveClient& client = *ready_clients_.front();
     ENVOY_CONN_LOG(debug, "using existing fully connected connection", client);
@@ -268,6 +277,7 @@ ConnectionPool::Cancellable* ConnPoolImplBase::newStreamImpl(AttachContext& cont
     return nullptr;
   }
 
+// 如果连接池中不存在空闲的 client
   if (can_send_early_data && !early_data_clients_.empty()) {
     ActiveClient& client = *early_data_clients_.front();
     ENVOY_CONN_LOG(debug, "using existing early data ready connection", client);
@@ -279,6 +289,25 @@ ConnectionPool::Cancellable* ConnPoolImplBase::newStreamImpl(AttachContext& cont
   }
 
   if (!host_->cluster().resourceManager(priority_).pendingRequests().canCreate()) {
+
+//  if (host_->cluster().resourceManager(priority_).pendingRequests().canCreate()) {
+//    // 这里的 newPendingStream 是被子类实现的
+//    ConnectionPool::Cancellable* pending = newPendingStream(context);
+//    ENVOY_LOG(debug, "trying to create new connection");
+//    ENVOY_LOG(trace, fmt::format("{}", *this));
+//
+//    auto old_capacity = connecting_stream_capacity_;
+//    // This must come after newPendingStream() because this function uses the
+//    // length of pending_streams_ to determine if a new connection is needed.
+//    const ConnectionResult result = tryCreateNewConnections();
+//    // If there is not enough connecting capacity, the only reason to not
+//    // increase capacity is if the connection limits are exceeded.
+//    ENVOY_BUG(pending_streams_.size() <= connecting_stream_capacity_ ||
+//                  connecting_stream_capacity_ > old_capacity ||
+//                  result == ConnectionResult::NoConnectionRateLimited,
+//              fmt::format("Failed to create expected connection: {}", *this));
+//    return pending;
+//  } else {
     ENVOY_LOG(debug, "max pending streams overflow");
     onPoolFailure(nullptr, absl::string_view(), ConnectionPool::PoolFailureReason::Overflow,
                   context);
@@ -335,6 +364,7 @@ void ConnPoolImplBase::onUpstreamReady() {
   }
 }
 
+// 对 client 进行分类整理
 std::list<ActiveClientPtr>& ConnPoolImplBase::owningList(ActiveClient::State state) {
   switch (state) {
   case ActiveClient::State::Connecting:

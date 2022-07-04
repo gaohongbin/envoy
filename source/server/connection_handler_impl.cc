@@ -16,9 +16,9 @@ namespace Envoy {
 namespace Server {
 
 ConnectionHandlerImpl::ConnectionHandlerImpl(Event::Dispatcher& dispatcher,
-                                             absl::optional<uint32_t> worker_index)
+                                             absl::optional<uint32_t> worker_index, std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map)
     : worker_index_(worker_index), dispatcher_(dispatcher),
-      per_handler_stat_prefix_(dispatcher.name() + "."), disable_listeners_(false) {}
+      per_handler_stat_prefix_(dispatcher.name() + "."), disable_listeners_(false), tcloud_map_(tcloud_map) {}
 
 void ConnectionHandlerImpl::incNumConnections() { ++num_handler_connections_; }
 
@@ -326,6 +326,7 @@ ConnectionHandlerImpl::findActiveListenerByTag(uint64_t listener_tag) {
   return absl::nullopt;
 }
 
+// 通过 tag 进行负载均衡
 Network::BalancedConnectionHandlerOptRef
 ConnectionHandlerImpl::getBalancedHandlerByTag(uint64_t listener_tag,
                                                const Network::Address::Instance& address) {
@@ -339,10 +340,23 @@ ConnectionHandlerImpl::getBalancedHandlerByTag(uint64_t listener_tag,
   return absl::nullopt;
 }
 
+// 通过 address 进行负载均衡
 Network::BalancedConnectionHandlerOptRef
 ConnectionHandlerImpl::getBalancedHandlerByAddress(const Network::Address::Instance& address) {
   // Only Ip address can be restored to original address and redirect.
   ASSERT(address.type() == Network::Address::Type::Ip);
+//  // This is a linear operation, may need to add a map<address, listener> to improve performance.
+//  // However, linear performance might be adequate since the number of listeners is small.
+//  // We do not return stopped listeners.
+//  // 先查询具体 IP
+//  auto listener_it =
+//      std::find_if(listeners_.begin(), listeners_.end(),
+//                   [&address](std::pair<Network::Address::InstanceConstSharedPtr,
+//                                        ConnectionHandlerImpl::ActiveListenerDetails>& p) {
+//                     return p.second.tcpListener().has_value() &&
+//                            p.second.listener_->listener() != nullptr &&
+//                            p.first->type() == Network::Address::Type::Ip && *(p.first) == address;
+//                   });
 
   // We do not return stopped listeners.
   // If there is exact address match, return the corresponding listener.
@@ -356,6 +370,7 @@ ConnectionHandlerImpl::getBalancedHandlerByAddress(const Network::Address::Insta
   OptRef<ConnectionHandlerImpl::PerAddressActiveListenerDetails> details;
   // Otherwise, we need to look for the wild card match, i.e., 0.0.0.0:[address_port].
   // We do not return stopped listeners.
+  // 再看是不是可以获取到 wild IP
   // TODO(wattli): consolidate with previous search for more efficiency.
 
   std::string addr_str = address.ip()->version() == Network::Address::IpVersion::v4

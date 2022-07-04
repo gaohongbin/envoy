@@ -14,6 +14,7 @@
 #include "envoy/upstream/cluster_manager.h"
 #include "envoy/upstream/health_check_host_monitor.h"
 #include "envoy/upstream/upstream.h"
+#include "source/common/common/base64.h"
 
 #include "source/common/common/assert.h"
 #include "source/common/common/cleanup.h"
@@ -374,6 +375,67 @@ void Filter::chargeUpstreamCode(Http::Code code,
 Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers, bool end_stream) {
   downstream_headers_ = &headers;
 
+  // Inject the active span's tracing context into the request headers.
+  // todo 卧槽, skywalking 在这里才把 trace 注入到 header 里面。
+  callbacks_->activeSpan().injectContext(headers, nullptr);
+
+  // TODO
+  // 是不是可以在这里插入泳道相关的内容。
+  /**
+  * 在这里做测试, 先往 request 的 header 里面写入固定的泳道名称。 在测试没问题以后, 我们再实现真正的逻辑。
+  */
+
+  absl::string_view traceId = headers.getSw8Value();
+  ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw8 = {}", *callbacks_, traceId);
+  ENVOY_STREAM_LOG(debug, "tcloud router decoding headers:\n{}", *callbacks_, headers);
+
+  if (config_.getTcloudMap() && !headers.getSw8Value().empty() && !headers.getTcloudLaneValue().empty()) {
+    // 对 sw8 的值进行分割, 取 traceId
+    std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(headers.getSw8Value()), '-');
+
+    if (!headers.getTcloudLaneValue().empty() && sw8Spilts.size() >= 2) {
+      config_.getTcloudMap()->setKV(sw8Spilts[1], std::string(headers.getTcloudLaneValue()));
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
+                       *callbacks_, sw8Spilts[1], headers.getTcloudLaneValue());
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+
+    }
+  }
+
+  // 兼容公司内部 trace
+  if (config_.getTcloudMap() && !headers.getTwlSpanContextValue().empty() && !headers.getTcloudLaneValue().empty()) {
+    // 对 twl-span-context 的值进行分割, 取 traceId
+    std::vector<std::string> TwlSpanSpilts = absl::StrSplit(std::string(headers.getTwlSpanContextValue()), ':');
+
+    if (!headers.getTcloudLaneValue().empty() && TwlSpanSpilts.size() >= 1) {
+      config_.getTcloudMap()->setKV(TwlSpanSpilts[0], std::string(headers.getTcloudLaneValue()));
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
+                       *callbacks_, TwlSpanSpilts[0], headers.getTcloudLaneValue());
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+    }
+  }
+
+  // 兼容公司内部 trace, 如果用户手动插入了 traceId
+  if (config_.getTcloudMap() && !headers.getTraceIdValue().empty() && !headers.getTcloudLaneValue().empty()) {
+    config_.getTcloudMap()->setKV(std::string(headers.getTraceIdValue()), std::string(headers.getTcloudLaneValue()));
+    ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
+                     *callbacks_, headers.getTraceIdValue(), headers.getTcloudLaneValue());
+    ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+  }
+
+  // 如果请求中没有 twl-span-context 也没有 traceId, 但是有 tcloud-lane, 在这里插入
+  if (config_.getTcloudMap() && headers.getTraceIdValue().empty() && headers.getTwlSpanContextValue().empty() && !headers.getTcloudLaneValue().empty()) {
+    // 直接复用 requestId
+    if (!headers.getRequestIdValue().empty()) {
+      headers.setTraceId(headers.getRequestIdValue());
+      config_.getTcloudMap()->setKV(std::string(headers.getRequestIdValue()), std::string(headers.getTcloudLaneValue()));
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
+                       *callbacks_, headers.getTraceIdValue(), headers.getTcloudLaneValue());
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+    }
+  }
+  
+
   // Extract debug configuration from filter state. This is used further along to determine whether
   // we should append cluster and host headers to the response, and whether to forward the request
   // upstream.
@@ -393,7 +455,19 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   // headers to append.
   std::function<void(Http::ResponseHeaderMap&)> modify_headers = [](Http::ResponseHeaderMap&) {};
 
+  // response 的 header 中添加 traceId
+  modify_headers = [traceId](Http::ResponseHeaderMap& headers) {
+      std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(traceId), '-');
+      if (sw8Spilts.size() >= 2) {
+        std::string sw8Base64 = sw8Spilts[1];
+        std::string sw8 = Base64::decodeWithoutPadding(absl::string_view(sw8Base64));
+        headers.addCopy(Http::LowerCaseString("traceid-sw8"), sw8);
+      }
+
+  };
+
   // Determine if there is a route entry or a direct response for the request.
+  // 针对当前 request 的 route, 可以通过查询缓存减少重复查询, 如果有更新, 一定要记得清理缓存。 
   route_ = callbacks_->route();
   if (!route_) {
     stats_.no_route_.inc();
@@ -406,6 +480,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   }
 
   // Determine if there is a direct response for the request.
+  // 对于一些请求, 可以直接返回相应, 先处理直接相应。
   const auto* direct_response = route_->directResponseEntry();
   if (direct_response != nullptr) {
     stats_.rq_direct_response_.inc();
@@ -495,6 +570,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   }
 
   // See if we are supposed to immediately kill some percentage of this cluster's traffic.
+  // todo 是否立即杀死这个集群的一部分流量, 这里可不可以用来做集群限流 ？
   if (cluster_->maintenanceMode()) {
     callbacks_->streamInfo().setResponseFlag(StreamInfo::ResponseFlag::UpstreamOverflow);
     chargeUpstreamCode(Http::Code::ServiceUnavailable, nullptr, true);
@@ -514,6 +590,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   }
 
   // Fetch a connection pool for the upstream cluster.
+  // 获取上游集群的连接池的 options
   const auto& upstream_http_protocol_options = cluster_->upstreamHttpProtocolOptions();
 
   if (upstream_http_protocol_options.has_value() &&
@@ -570,12 +647,33 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
       }
       Network::Socket::appendOptions(upstream_options_, downstream_options);
     }
+//  auto has_options_from_downstream =
+//      downstreamConnection() && downstreamConnection()
+//                                    ->streamInfo()
+//                                    .filterState()
+//                                    .hasData<Network::UpstreamSocketOptionsFilterState>(
+//                                        Network::UpstreamSocketOptionsFilterState::key());
+//
+//  // 这里判断是否 downstream 有 options
+//  if (has_options_from_downstream) {
+//    auto downstream_options = downstreamConnection()
+//                                  ->streamInfo()
+//                                  .filterState()
+//                                  .getDataReadOnly<Network::UpstreamSocketOptionsFilterState>(
+//                                      Network::UpstreamSocketOptionsFilterState::key())
+//                                  .value();
+//    if (!upstream_options_) {
+//      upstream_options_ = std::make_shared<Network::Socket::Options>();
+//    }
+//    // 如果 has_options_from_downstream 则需要将该 options 和 upstream_options_ 进行合并, 一起来进行选择
+//    Network::Socket::appendOptions(upstream_options_, downstream_options);
   }
 
+  // upstream_options_ 又添加了另外一些 options
   if (upstream_options_ && callbacks_->getUpstreamSocketOptions()) {
     Network::Socket::appendOptions(upstream_options_, callbacks_->getUpstreamSocketOptions());
   }
-
+  // 创建连接池
   std::unique_ptr<GenericConnPool> generic_conn_pool = createConnPool(*cluster);
 
   if (!generic_conn_pool) {
@@ -584,6 +682,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   }
   Upstream::HostDescriptionConstSharedPtr host = generic_conn_pool->host();
 
+  // TODO 这个后面可以开启, 尤其是在泳道
   if (debug_config && debug_config->append_upstream_host_) {
     // The hostname and address will be appended to any local or upstream responses from this point,
     // possibly in addition to the cluster name.
@@ -638,6 +737,8 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   // The router has reached a point where it is going to try to send a request upstream,
   // so now modify_headers should attach x-envoy-attempt-count to the downstream response if the
   // config flag is true.
+  // 请求尝试的次数, 附加到 response 中。
+  // todo 是不是后续可以把 sw8 从这里塞到 response
   if (route_entry_->includeAttemptCountInResponse()) {
     modify_headers = [modify_headers, this](Http::ResponseHeaderMap& headers) {
       modify_headers(headers);
@@ -649,6 +750,52 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   }
   callbacks_->streamInfo().setAttemptCount(attempt_count_);
 
+  // 本段代码整体往上平移
+  // // Inject the active span's tracing context into the request headers.
+  // // todo 卧槽, skywalking 在这里才把 trace 注入到 header 里面。
+  // callbacks_->activeSpan().injectContext(headers);
+
+  // // TODO
+  // // 是不是可以在这里插入泳道相关的内容。
+  // /**
+  // * 在这里做测试, 先往 request 的 header 里面写入固定的泳道名称。 在测试没问题以后, 我们再实现真正的逻辑。
+  // */
+  // absl::string_view traceId = headers.getSw8Value();
+  // ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw8 = {}", *callbacks_, traceId);
+  // ENVOY_STREAM_LOG(debug, "tcloud router decoding headers:\n{}", *callbacks_, headers);
+
+  // if (config_.getTcloudMap() && !headers.getSw8Value().empty()) {
+  //   // 对 sw8 的值进行分割, 取 traceId
+  //   std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(headers.getSw8Value()), '-');
+
+  //   if (!headers.getTcloudLaneValue().empty() && sw8Spilts.size() >= 2) {
+  //     config_.getTcloudMap()->setKV(sw8Spilts[1], std::string(headers.getTcloudLaneValue()));
+  //     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
+  //                      *callbacks_, sw8Spilts[1], headers.getTcloudLaneValue());
+  //     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+
+  //   } else if (sw8Spilts.size() >= 2) {
+  //     std::string tcloudLane = config_.getTcloudMap()->getValue(sw8Spilts[1]);
+  //     headers.setTcloudLane(tcloudLane);
+  //     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders getValue, key = {}, value = {} :\n",
+  //                      *callbacks_, sw8Spilts[1], tcloudLane);
+  //     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+  //   }
+
+  // } else if (config_.getTcloudMap()) {
+  //   std::string defaultTcloudLane = config_.getTcloudMap()->getDefaultValue();
+  //   headers.setTcloudLane(defaultTcloudLane);
+  //   ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is not null , 没有 sw8, 插入了默认泳道", *callbacks_);
+  // } else {
+  //   ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is null ", *callbacks_);
+  // }
+
+  // todo 在这里再判断一下 tcloud_map 是不是针对 sw8 已经存了, 如果没有存, 则再存一次。
+
+  // headers.setTcloudLane("dev1");
+  // ENVOY_STREAM_LOG(debug, "tcloud router filter envoy set tcloud lane = dev1", *callbacks_);
+
+  // 对 header 做一些最终的修改
   route_entry_->finalizeRequestHeaders(headers, callbacks_->streamInfo(),
                                        !config_.suppress_envoy_headers_);
   FilterUtility::setUpstreamScheme(
@@ -672,6 +819,12 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
         active_shadow_policies_.push_back(std::cref(policy_ref));
         shadow_headers_ = Http::createHeaderMap<Http::RequestHeaderMapImpl>(*downstream_headers_);
       }
+  // runtime keys.
+  // 应该是和流量镜像相关的东西
+//  for (const auto& shadow_policy : route_entry_->shadowPolicies()) {
+//    const auto& policy_ref = *shadow_policy;
+//    if (FilterUtility::shouldShadow(policy_ref, config_.runtime_, callbacks_->streamId())) {
+//      active_shadow_policies_.push_back(std::cref(policy_ref));
     }
   }
 
@@ -694,6 +847,12 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
       *this, std::move(generic_conn_pool), can_send_early_data, can_use_http3);
   LinkedList::moveIntoList(std::move(upstream_request), upstream_requests_);
   upstream_requests_.front()->acceptHeadersFromRouter(end_stream);
+  // UpstreamRequest即进行路由的核心类, 初始化一个 UpstreamRequest
+//  UpstreamRequestPtr upstream_request =
+//      std::make_unique<UpstreamRequest>(*this, std::move(generic_conn_pool));
+//  LinkedList::moveIntoList(std::move(upstream_request), upstream_requests_);
+//  // 这里就开始 encodeHeaders 了。
+//  upstream_requests_.front()->encodeHeaders(end_stream);
   if (end_stream) {
     onRequestComplete();
   }
@@ -713,12 +872,20 @@ Filter::createConnPool(Upstream::ThreadLocalCluster& thread_local_cluster) {
   }
   if (!factory) {
     factory = &config_.router_context_.genericConnPoolFactory();
+    // 这玩意在 source/extensions/upstreams/http/generic/config.h 里面定义
+    // 该工厂类, 可以根据传入的参数不同, 返回
+    // Envoy::Extensions::Upstreams::Http::Tcp::TcpConnPool 或者 Envoy::Extensions::Upstreams::Http::Http::HttpConnPool
+//    factory = &Envoy::Config::Utility::getAndCheckFactoryByName<GenericConnPoolFactory>(
+//        "envoy.filters.connection_pools.http.generic");
   }
 
   bool should_tcp_proxy = false;
 
+  // 先暂时理解为针对特殊情况的处理
+  // TODO 后面了解一下这块内容
   if (route_entry_->connectConfig().has_value()) {
     auto method = downstream_headers_->getMethodValue();
+    // CONNECT 和 POST, GET 一样, 是一种特殊的请求方式
     should_tcp_proxy = (method == Http::Headers::get().MethodValues.Connect);
 
     // Allow POST for proxying raw TCP if it is configured.
@@ -746,6 +913,9 @@ Http::FilterDataStatus Filter::decodeData(Buffer::Instance& data, bool end_strea
   // a backoff timer.
   ASSERT(upstream_requests_.size() <= 1);
 
+  // 这里判断是否要 buffer 缓存,
+  // 判断你条件为是否需要重试，是否需要流量复制，是否需要内部重定向
+  // 这些不影响主流程，我们先关注主流程
   bool buffering = (retry_state_ && retry_state_->enabled()) || !active_shadow_policies_.empty() ||
                    (route_entry_ && route_entry_->internalRedirectPolicy().enabled());
   if (buffering &&

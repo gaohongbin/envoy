@@ -306,6 +306,7 @@ ClusterManagerImpl::ClusterManagerImpl(
       cluster_timeout_budget_stat_names_(stats.symbolTable()) {
   async_client_manager_ = std::make_unique<Grpc::AsyncClientManagerImpl>(
       *this, tls, time_source_, api, grpc_context.statNames());
+  // 因为 bootstrap 中并没有 cluster_manager 的相关配置, 所以会返回一个默认的 ClusterManager_default_instance
   const auto& cm_config = bootstrap.cluster_manager();
   if (cm_config.has_outlier_detection()) {
     const std::string event_log_file_path = cm_config.outlier_detection().event_log_path();
@@ -343,6 +344,8 @@ ClusterManagerImpl::ClusterManagerImpl(
   // loading is done because in v2 configuration each EDS cluster individually sets up a
   // subscription. When this subscription is an API source the cluster will depend on a non-EDS
   // cluster, so the non-EDS clusters must be loaded first.
+  // 加载集群分两步骤。 1: 先加载主集群。 2: 加载其他所有集群。
+  // 下面是判断一个集群是不是主集群
   auto is_primary_cluster = [](const envoy::config::cluster::v3::Cluster& cluster) -> bool {
     return cluster.type() != envoy::config::cluster::v3::Cluster::EDS ||
            (cluster.type() == envoy::config::cluster::v3::Cluster::EDS &&
@@ -351,6 +354,7 @@ ClusterManagerImpl::ClusterManagerImpl(
   };
   // Build book-keeping for which clusters are primary. This is useful when we
   // invoke loadCluster() below and it needs the complete set of primaries.
+  // 将 bootstrap 中的主集群加入 primary_clusters_
   for (const auto& cluster : bootstrap.static_resources().clusters()) {
     if (is_primary_cluster(cluster)) {
       primary_clusters_.insert(cluster.name());
@@ -367,6 +371,8 @@ ClusterManagerImpl::ClusterManagerImpl(
   // This is the only point where distinction between delta ADS and state-of-the-world ADS is made.
   // After here, we just have a GrpcMux interface held in ads_mux_, which hides
   // whether the backing implementation is delta or SotW.
+  // 根据 bootstrap 配置 ADS
+  // 这里只区分了 delta ADS 和 state-of-the-world ADS, 只在这里根据 bootstrap 的配置, 初始化不同, 后续都是作为 ads_mux_ 变量存在。
   if (dyn_resources.has_ads_config()) {
     Config::CustomConfigValidatorsPtr custom_config_validators =
         std::make_unique<Config::CustomConfigValidatorsImpl>(
@@ -467,6 +473,7 @@ ClusterManagerImpl::ClusterManagerImpl(
 
   // Once the initial set of static bootstrap clusters are created (including the local cluster),
   // we can instantiate the thread local cluster manager.
+  // bootstrap 中的静态集群初始化完成后, 开始实例化线程的本地集群管理器。
   tls_.set([this, local_cluster_params](Event::Dispatcher& dispatcher) {
     return std::make_shared<ThreadLocalClusterManagerImpl>(*this, dispatcher, local_cluster_params);
   });
@@ -821,6 +828,7 @@ ClusterManagerImpl::loadCluster(const envoy::config::cluster::v3::Cluster& clust
   auto& new_cluster = new_cluster_pair.first;
   Cluster& cluster_reference = *new_cluster;
 
+  // 如果是通过 envoy-rev0.json 启动加载的 cluster, 不允许重复
   if (!added_via_api) {
     if (cluster_map.find(new_cluster->info()->name()) != cluster_map.end()) {
       throw EnvoyException(
@@ -864,6 +872,8 @@ ClusterManagerImpl::loadCluster(const envoy::config::cluster::v3::Cluster& clust
     });
   }
   ClusterDataPtr result;
+  // 如果是通过 api 方式加载的 cluster 就可以重复, 因为需要不断和 istio 进行通信。
+  // 如果已经存在了就 exchange, 如果不存在, 则直接创建进行插入。
   auto cluster_entry_it = cluster_map.find(cluster_reference.info()->name());
   if (cluster_entry_it != cluster_map.end()) {
     result = std::exchange(cluster_entry_it->second,
@@ -881,6 +891,9 @@ ClusterManagerImpl::loadCluster(const envoy::config::cluster::v3::Cluster& clust
   // If an LB is thread aware, create it here. The LB is not initialized until cluster pre-init
   // finishes. For RingHash/Maglev don't create the LB here if subset balancing is enabled,
   // because the thread_aware_lb_ field takes precedence over the subset lb).
+  // TODO 这里只是翻译了一下上面的内容, 还不是特别理解, 后面再理解吧, 先跳过了。
+  // 如果 LB 是线程感知的，请在此处创建它。在集群预初始化完成之前，LB 不会被初始化。
+  // 对于 RingHash/Maglev，如果启用了子集平衡，请不要在此处创建 LB，因为 thread_aware_lb_ 字段优先于子集 lb
   if (cluster_reference.info()->lbType() == LoadBalancerType::RingHash) {
     if (!cluster_reference.info()->lbSubsetInfo().isEnabled()) {
       cluster_entry_it->second->thread_aware_lb_ = std::make_unique<RingHashLoadBalancer>(
@@ -981,6 +994,7 @@ void ClusterManagerImpl::maybePreconnect(
   }
 }
 
+// 找了半天终于开始选择具体 host 了,
 absl::optional<HttpPoolData>
 ClusterManagerImpl::ThreadLocalClusterManagerImpl::ClusterEntry::httpConnPool(
     ResourcePriority priority, absl::optional<Http::Protocol> protocol,
@@ -1001,6 +1015,20 @@ ClusterManagerImpl::ThreadLocalClusterManagerImpl::ClusterEntry::httpConnPool(
       },
       pool);
   return data;
+//  // 创建连接池
+//  auto ret = connPool(priority, protocol, context, false);
+//
+//  // Now see if another host should be preconnected.
+//  // httpConnPool is called immediately before a call for newStream. newStream doesn't
+//  // have the load balancer context needed to make selection decisions so preconnecting must be
+//  // performed here in anticipation of the new stream.
+//  // TODO(alyssawilk) refactor to have one function call and return a pair, so this invariant is
+//  // code-enforced.
+//  // 预连接处理, 这里我们先跳过
+//  maybePreconnect(*this, parent_.cluster_manager_state_, [this, &priority, &protocol, &context]() {
+//    return connPool(priority, protocol, context, true);
+//  });
+//  return ret;
 }
 
 absl::optional<TcpPoolData>
@@ -1066,6 +1094,7 @@ void ClusterManagerImpl::postThreadLocalRemoveHosts(const Cluster& cluster,
   });
 }
 
+// 当 cluster 更新时, 更新 ClusterManagerImpl 中保存的 cluster 信息
 void ClusterManagerImpl::postThreadLocalClusterUpdate(ClusterManagerCluster& cm_cluster,
                                                       ThreadLocalClusterUpdateParams&& params) {
   bool add_or_update_cluster = false;
@@ -1088,6 +1117,18 @@ void ClusterManagerImpl::postThreadLocalClusterUpdate(ClusterManagerCluster& cm_
   }
 
   HostMapConstSharedPtr host_map = cm_cluster.cluster().prioritySet().crossPriorityHostMap();
+  // 更新所有线程的 ThreadLocalClusterManagerImpl
+  // 所以 ClusterManagerImpl 是总管, 然后每个线程还有一个 ThreadLocalClusterManagerImpl。
+//  tls_.runOnAllThreads(
+//      [info = cm_cluster.cluster().info(), params = std::move(params), add_or_update_cluster,
+//       load_balancer_factory](OptRef<ThreadLocalClusterManagerImpl> cluster_manager) {
+//        ThreadLocalClusterManagerImpl::ClusterEntry* new_cluster = nullptr;
+//        if (add_or_update_cluster) {
+//          if (cluster_manager->thread_local_clusters_.count(info->name()) > 0) {
+//            ENVOY_LOG(debug, "updating TLS cluster {}", info->name());
+//          } else {
+//            ENVOY_LOG(debug, "adding TLS cluster {}", info->name());
+//          }
 
   pending_cluster_creations_.erase(cm_cluster.cluster().info()->name());
   tls_.runOnAllThreads([info = cm_cluster.cluster().info(), params = std::move(params),
@@ -1505,6 +1546,7 @@ ClusterManagerImpl::ThreadLocalClusterManagerImpl::addClusterUpdateCallbacks(
   return std::make_unique<ClusterUpdateCallbacksHandleImpl>(cb, update_callbacks_);
 }
 
+// 初始化 cluster
 ClusterManagerImpl::ThreadLocalClusterManagerImpl::ClusterEntry::ClusterEntry(
     ThreadLocalClusterManagerImpl& parent, ClusterInfoConstSharedPtr cluster,
     const LoadBalancerFactorySharedPtr& lb_factory)
@@ -1513,6 +1555,7 @@ ClusterManagerImpl::ThreadLocalClusterManagerImpl::ClusterEntry::ClusterEntry(
 
   // TODO(mattklein123): Consider converting other LBs over to thread local. All of them could
   // benefit given the healthy panic, locality, and priority calculations that take place.
+  // 初始化各种 LB
   if (cluster->lbSubsetInfo().isEnabled()) {
     lb_ = std::make_unique<SubsetLoadBalancer>(
         cluster->lbType(), priority_set_, parent_.local_priority_set_, cluster->stats(),
@@ -1614,10 +1657,12 @@ ClusterManagerImpl::ThreadLocalClusterManagerImpl::ClusterEntry::~ClusterEntry()
   drainConnPools();
 }
 
+// 建立连接池
 Http::ConnectionPool::Instance*
 ClusterManagerImpl::ThreadLocalClusterManagerImpl::ClusterEntry::httpConnPoolImpl(
     ResourcePriority priority, absl::optional<Http::Protocol> downstream_protocol,
     LoadBalancerContext* context, bool peek) {
+  // 通过 lb 选择上游具体 host
   HostConstSharedPtr host = (peek ? lb_->peekAnotherHost(context) : lb_->chooseHost(context));
   if (!host) {
     if (!peek) {
@@ -1668,10 +1713,12 @@ ClusterManagerImpl::ThreadLocalClusterManagerImpl::ClusterEntry::httpConnPoolImp
     context->downstreamConnection()->hashKey(hash_key);
   }
 
+  // 初始化 ConnPoolsContainer
   ConnPoolsContainer& container = *parent_.getHttpConnPoolsContainer(host, true);
 
   // Note: to simplify this, we assume that the factory is only called in the scope of this
   // function. Otherwise, we'd need to capture a few of these variables by value.
+  // getPool 获取相应的连接池。
   ConnPoolsContainer::ConnPools::PoolOptRef pool =
       container.pools_->getPool(priority, hash_key, [&]() {
         auto pool = parent_.parent_.factory_.allocateConnPool(

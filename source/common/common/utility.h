@@ -478,6 +478,8 @@ public:
 /**
  * Utilities for working with weighted clusters.
  */
+ // 选择 weighedCluster 中的 cluster, 通过 random_value, 然后 random_value 对 total_cluster_weight 取模得到 selected_value, 
+ // 从 0 开始加每个 cluster 的 weight, 然后看 selected_value 落在哪个区间, 秒啊。
 class WeightedClusterUtil {
 public:
   /*

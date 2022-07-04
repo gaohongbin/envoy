@@ -53,6 +53,7 @@ public:
   /**
    * @return event_base& the libevent base.
    */
+   // event_base 是 libevent 中的概念, event 最终会被注册到 event_base 中, 等待被触发。
   event_base& base() { return base_scheduler_.base(); }
 
   // Event::Dispatcher
@@ -155,6 +156,7 @@ private:
   DispatcherStatsPtr stats_;
   Thread::ThreadId run_tid_;
   Buffer::WatermarkFactorySharedPtr buffer_factory_;
+  // 事件被注册到 event_base 以后, 由 base_scheduler_ 进行调度, 底层就是调用 libevent 的 event_base_loop 方法。
   LibeventScheduler base_scheduler_;
   SchedulerPtr scheduler_;
 

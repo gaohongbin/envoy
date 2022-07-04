@@ -34,6 +34,7 @@
 #include "envoy/stream_info/filter_state.h"
 #include "envoy/tracing/http_tracer.h"
 #include "envoy/upstream/upstream.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "source/common/buffer/watermark_buffer.h"
 #include "source/common/common/dump_state_utils.h"
@@ -57,6 +58,12 @@ namespace Http {
  * Network::Filter that can be installed on a connection that will perform HTTP protocol agnostic
  * handling of a connection and all requests/pushes that occur on a connection.
  */
+ // 注意 ServerConnectionCallbacks 是在 HTTP namespace 下, 
+ // Network::ConnectionCallbacks 则是在 Network namespace 下, 两个是不同维度的。
+
+// Http::ConnectionManagerImpl是一个Network::ReadFilter。
+// 在Envoy里面，有Network::WriteFilter和Network::ReadFilter，其中从Downstream发送到Upstream的使用Network::ReadFilter对网络包进行处理，
+// 反方向的是使用Network::WriteFilter。
 class ConnectionManagerImpl : Logger::Loggable<Logger::Id::http>,
                               public Network::ReadFilter,
                               public ServerConnectionCallbacks,
@@ -67,7 +74,8 @@ public:
                         Random::RandomGenerator& random_generator, Http::Context& http_context,
                         Runtime::Loader& runtime, const LocalInfo::LocalInfo& local_info,
                         Upstream::ClusterManager& cluster_manager,
-                        Server::OverloadManager& overload_manager, TimeSource& time_system);
+                        Server::OverloadManager& overload_manager, TimeSource& time_system,
+                        std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr);
   ~ConnectionManagerImpl() override;
 
   static ConnectionManagerStats generateStats(const std::string& prefix, Stats::Scope& scope);
@@ -97,6 +105,7 @@ public:
   void onGoAway(GoAwayErrorCode error_code) override;
 
   // Http::ServerConnectionCallbacks
+  // 因为 ConnectionManagerImpl 继承了 ServerConnectionCallbacks, 这个方法就是 ServerConnectionCallbacks 的回调方法, 当有新的 request 到达时调用
   RequestDecoder& newStream(ResponseEncoder& response_encoder,
                             bool is_internally_created = false) override;
 
@@ -114,6 +123,8 @@ public:
 
   void setClearHopByHopResponseHeaders(bool value) { clear_hop_by_hop_response_headers_ = value; }
   bool clearHopByHopResponseHeaders() const { return clear_hop_by_hop_response_headers_; }
+
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() { return tcloud_map_; }
 
 private:
   struct ActiveStream;
@@ -154,6 +165,9 @@ private:
    * Wraps a single active stream on the connection. These are either full request/response pairs
    * or pushes.
    */
+  // 封装连接上的单个活动流。这些是完整的请求/响应对或推送。
+  // ActiveStream 既封装了对 request 的 decode操作, 也封装了对 rsp 的 encode 操作
+  // 每个 ActiveStream 包含一个 filter_manager_。
   struct ActiveStream final : LinkedObject<ActiveStream>,
                               public Event::DeferredDeletable,
                               public StreamCallbacks,
@@ -479,6 +493,9 @@ private:
   // The number of requests accumulated on the current connection.
   uint64_t accumulated_requests_{};
   const std::string proxy_name_; // for Proxy-Status.
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 } // namespace Http

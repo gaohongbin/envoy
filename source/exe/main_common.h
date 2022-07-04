@@ -99,6 +99,7 @@ public:
   // Hook to run after a server is created.
   using PostServerHook = std::function<void(Server::Instance& server)>;
 
+  // 这里看看 MainCommon 的初始化逻辑
   MainCommon(int argc, const char* const* argv);
   MainCommon(const std::vector<std::string>& args);
 

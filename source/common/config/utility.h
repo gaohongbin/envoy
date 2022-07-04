@@ -258,6 +258,7 @@ public:
    * @param is_optional exception will be throw when the value is false and no factory found.
    * @return factory the factory requested or nullptr if it does not exist.
    */
+  // 通过名称获取 factory
   template <class Factory>
   static Factory* getAndCheckFactoryByName(const std::string& name, bool is_optional) {
     if (name.empty()) {

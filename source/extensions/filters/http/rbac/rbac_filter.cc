@@ -14,6 +14,7 @@ namespace Extensions {
 namespace HttpFilters {
 namespace RBACFilter {
 
+// 初始化方法
 absl::Status ActionValidationVisitor::performDataInputValidation(
     const Envoy::Matcher::DataInputFactory<Http::HttpMatchingData>&, absl::string_view type_url) {
   static absl::flat_hash_set<std::string> allowed_inputs_set{
@@ -53,6 +54,7 @@ absl::Status ActionValidationVisitor::performDataInputValidation(
   return absl::InvalidArgumentError(fmt::format("RBAC HTTP filter cannot match on '{}'", type_url));
 }
 
+
 RoleBasedAccessControlFilterConfig::RoleBasedAccessControlFilterConfig(
     const envoy::extensions::filters::http::rbac::v3::RBAC& proto_config,
     const std::string& stats_prefix, Stats::Scope& scope,
@@ -71,6 +73,21 @@ RoleBasedAccessControlFilterConfig::engine(const Http::StreamFilterCallbacks* ca
                                            Filters::Common::RBAC::EnforcementMode mode) const {
   const auto* route_local = Http::Utility::resolveMostSpecificPerFilterConfig<
       RoleBasedAccessControlRouteSpecificFilterConfig>(callbacks);
+
+// engine 方法
+//const Filters::Common::RBAC::RoleBasedAccessControlEngineImpl*
+//RoleBasedAccessControlFilterConfig::engine(const Router::RouteConstSharedPtr route,
+//                                           Filters::Common::RBAC::EnforcementMode mode) const {
+//  if (!route || !route->routeEntry()) {
+//    return engine(mode);
+//  }
+//
+//  // envoy.filters.http.rbac
+//  const std::string& name = HttpFilterNames::get().Rbac;
+//  const auto* entry = route->routeEntry();
+//  const auto* route_local =
+//      entry->mostSpecificPerFilterConfigTyped<RoleBasedAccessControlRouteSpecificFilterConfig>(
+//          name);
 
   if (route_local) {
     return route_local->engine(mode);
@@ -113,6 +130,8 @@ RoleBasedAccessControlFilter::decodeHeaders(Http::RequestHeaderMap& headers, boo
           : "none",
       headers, callbacks_->streamInfo().dynamicMetadata().DebugString());
 
+  // 了解到 Shadow: 不会强制执行, 但是会发出统计信息和日志, 主要是为了方便调试。
+  // Enforced 会被过滤器强制执行的规则。
   std::string effective_policy_id;
   const auto shadow_engine =
       config_->engine(callbacks_, Filters::Common::RBAC::EnforcementMode::Shadow);

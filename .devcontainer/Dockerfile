@@ -8,6 +8,13 @@ ENV BUILD_DIR=/build
 ENV ENVOY_STDLIB=libstdc++
 
 ENV DEBIAN_FRONTEND=noninteractive
+# RUN apt-get -y install aptitude
+# RUN sudo apt-get -y install software-properties-common dirmngr
+RUN sed -i '52c #deb https://apt.kitware.com/ubuntu/ bionic main' /etc/apt/sources.list
+RUN apt-get -y update
+RUN apt-get -y install  dirmngr
+RUN apt-key adv --keyserver  keyserver.ubuntu.com --recv-keys 6AF7F09730B3F0A4
+RUN sed -i '52c deb https://apt.kitware.com/ubuntu/ bionic main' /etc/apt/sources.list
 RUN apt-get -y update \
   && apt-get -y install --no-install-recommends libpython2.7 net-tools psmisc vim 2>&1 \
   # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.

@@ -103,6 +103,7 @@ public:
  * A transport socket that does actual read / write. It can also do some transformations on
  * the data (e.g. TLS).
  */
+ // 进行实际读/写的传输套接字。它还可以对数据进行一些转换（例如 TLS）。
 class TransportSocket {
 public:
   virtual ~TransportSocket() = default;

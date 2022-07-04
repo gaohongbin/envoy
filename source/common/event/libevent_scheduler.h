@@ -61,6 +61,7 @@ public:
 
   // Scheduler
   TimerPtr createTimer(const TimerCb& cb, Dispatcher& dispatcher) override;
+  // 生成一个 SchedulableCallback
   SchedulableCallbackPtr createSchedulableCallback(const std::function<void()>& cb) override;
 
   /**
@@ -91,6 +92,8 @@ public:
    * |callback| cannot be unregistered, therefore it has to be valid throughout
    * the lifetime of |this|.
    */
+   // 在轮询事件之前注册要在事件循环中调用的回调。不得多次调用。 |回调|不得为空。
+   // |回调|不能取消注册，因此它必须在 |this| 的整个生命周期内有效。
   void registerOnPrepareCallback(OnPrepareCallback&& callback);
 
   /**

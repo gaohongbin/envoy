@@ -723,6 +723,7 @@ using MetadataMatchCriterionConstSharedPtr = std::shared_ptr<const MetadataMatch
 class MetadataMatchCriteria;
 using MetadataMatchCriteriaConstPtr = std::unique_ptr<const MetadataMatchCriteria>;
 
+// MetadataMatchCriteria 元数据匹配条件
 class MetadataMatchCriteria {
 public:
   virtual ~MetadataMatchCriteria() = default;
@@ -732,6 +733,7 @@ public:
    * metadata to be matched against upstream endpoints when load
    * balancing, sorted lexically by name.
    */
+  // 负载平衡时要与上游端点匹配的 元数据数组，按名称排序。
   virtual const std::vector<MetadataMatchCriterionConstSharedPtr>&
   metadataMatchCriteria() const PURE;
 
@@ -743,6 +745,8 @@ public:
    * @param metadata_matches supplies the new criteria.
    * @return MetadataMatchCriteriaConstPtr the result criteria.
    */
+   // 创建一个新的 MetadataMatchCriteria，将现有的元数据条件与提供的条件合并。结果标准是两组标准的组合.
+   // 其中来自 metadata_matches ProtobufWkt::Struct 的标准优先。
   virtual MetadataMatchCriteriaConstPtr
   mergeMatchCriteria(const ProtobufWkt::Struct& metadata_matches) const PURE;
 
@@ -849,6 +853,7 @@ public:
 /**
  * An individual resolved route entry.
  */
+// 这个其实对应的就是 istio 下发的 RDS, 不同的域名对应不同的 route。  RouteEntry 就是对 route 的封装。
 class RouteEntry : public ResponseEntry {
 public:
   ~RouteEntry() override = default;
@@ -972,6 +977,7 @@ public:
    * @return optional<std::chrono::milliseconds> the route's idle timeout. Zero indicates a
    *         disabled idle timeout, while nullopt indicates deference to the global timeout.
    */
+   // idleTimeout 参考: https://blog.fatedier.com/2022/10/09/istio-inbound-http-request-idletimeout/
   virtual absl::optional<std::chrono::milliseconds> idleTimeout() const PURE;
 
   /**
@@ -1125,6 +1131,7 @@ public:
    * should be propagated to other services.
    * @return whether to propagate
    */
+   // 是否要将 decorator 信息传递给其他服务。 propagate: 传播
   virtual bool propagate() const PURE;
 };
 
@@ -1266,6 +1273,7 @@ using RouteCallback = std::function<RouteMatchStatus(RouteConstSharedPtr, RouteE
 /**
  * The router configuration.
  */
+// 原来根据 header 进行 route 是在这里做的。
 class Config : public Rds::Config {
 public:
   /**
@@ -1276,6 +1284,7 @@ public:
    *        allows stable choices between calls if desired.
    * @return the route or nullptr if there is no matching route for the request.
    */
+  // 根据 req header 选择目标路由。
   virtual RouteConstSharedPtr route(const Http::RequestHeaderMap& headers,
                                     const StreamInfo::StreamInfo& stream_info,
                                     uint64_t random_value) const PURE;
@@ -1295,6 +1304,8 @@ public:
    * @return the route accepted by the callback or nullptr if no match found or none of route is
    * accepted by the callback.
    */
+  // 根据 req header 选择目标路由。
+  // 只是这个方法可以做一些回调操作。
   virtual RouteConstSharedPtr route(const RouteCallback& cb, const Http::RequestHeaderMap& headers,
                                     const StreamInfo::StreamInfo& stream_info,
                                     uint64_t random_value) const PURE;
@@ -1303,11 +1314,13 @@ public:
    * Return a list of headers that will be cleaned from any requests that are not from an internal
    * (RFC1918) source.
    */
+   // 如果 req 非内部源请求, 则将 req header 中的这些 key:val 进行清除, 返回 key 列表
   virtual const std::list<Http::LowerCaseString>& internalOnlyHeaders() const PURE;
 
   /**
    * @return const std::string the RouteConfiguration name.
    */
+   // route config 名称
   virtual const std::string& name() const PURE;
 
   /**
@@ -1374,6 +1387,7 @@ public:
  * An API for the interactions the upstream stream needs to have with the downstream stream
  * and/or router components
  */
+ // 用于 upstream 需要与 downstream 或者 router 组件进行交互的 API
 class UpstreamToDownstream : public Http::ResponseDecoder, public Http::StreamCallbacks {
 public:
   /**
@@ -1502,6 +1516,8 @@ public:
    * @param options for creating the transport socket
    * @return may be null
    */
+  // 跳转以后, 这里的路径是 include, 针对这个 GenericConnPoolPtr 下面分别有两种实现, 分别实现了 http 和 tcp
+  // 所以可以理解 include 中的 .h 文件都是一些 interface, 真正的实现在 source/ 目录下面。
   virtual GenericConnPoolPtr
   createGenericConnPool(Upstream::ThreadLocalCluster& thread_local_cluster, bool is_connect,
                         const RouteEntry& route_entry,

@@ -26,6 +26,8 @@
 #include "source/common/protobuf/utility.h"
 #include "source/common/stream_info/stream_info_impl.h"
 
+#include "envoy/tcloud/tcloud_map.h"
+
 namespace Envoy {
 namespace Http {
 
@@ -590,6 +592,7 @@ private:
  * FilterManager manages decoding a request through a series of decoding filter and the encoding
  * of the resulting response.
  */
+// FilterManager 通过一系列解码过滤器和编码来管理解码请求结果的响应。
 class FilterManager : public ScopeTrackedObject,
                       public FilterChainManager,
                       Logger::Loggable<Logger::Id::http> {
@@ -597,11 +600,49 @@ public:
   FilterManager(FilterManagerCallbacks& filter_manager_callbacks, Event::Dispatcher& dispatcher,
                 OptRef<const Network::Connection> connection, uint64_t stream_id,
                 Buffer::BufferMemoryAccountSharedPtr account, bool proxy_100_continue,
-                uint32_t buffer_limit, const FilterChainFactory& filter_chain_factory)
+                uint32_t buffer_limit, const FilterChainFactory& filter_chain_factory,
+                std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr)
       : filter_manager_callbacks_(filter_manager_callbacks), dispatcher_(dispatcher),
         connection_(connection), stream_id_(stream_id), account_(std::move(account)),
         proxy_100_continue_(proxy_100_continue), buffer_limit_(buffer_limit),
-        filter_chain_factory_(filter_chain_factory) {}
+        filter_chain_factory_(filter_chain_factory), tcloud_map_(tcloud_map) {
+        if (tcloud_map) {
+          ENVOY_LOG(debug, "tcloud FilterManager tcloud_map is not null");
+        } else {
+          ENVOY_LOG(debug, "tcloud FilterManager tcloud_map is null");
+        }
+
+        if (tcloud_map_) {
+          ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is not null");
+        } else {
+          ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is null");
+        }
+  }
+//                const Network::Connection& connection, uint64_t stream_id, bool proxy_100_continue,
+//                uint32_t buffer_limit, FilterChainFactory& filter_chain_factory,
+//                const LocalReply::LocalReply& local_reply, Http::Protocol protocol,
+//                TimeSource& time_source, StreamInfo::FilterStateSharedPtr parent_filter_state,
+//                StreamInfo::FilterState::LifeSpan filter_state_life_span,
+//                std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr)
+//      : filter_manager_callbacks_(filter_manager_callbacks), dispatcher_(dispatcher),
+//        connection_(connection), stream_id_(stream_id), proxy_100_continue_(proxy_100_continue),
+//        buffer_limit_(buffer_limit), filter_chain_factory_(filter_chain_factory),
+//        local_reply_(local_reply),
+//        stream_info_(protocol, time_source, connection.addressProviderSharedPtr(),
+//                     parent_filter_state, filter_state_life_span),
+//        tcloud_map_(tcloud_map) {
+//            if (tcloud_map) {
+//              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map is not null");
+//            } else {
+//              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map is null");
+//            }
+//
+//            if (tcloud_map_) {
+//              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is not null");
+//            } else {
+//              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is null");
+//            }
+//        }
   ~FilterManager() override {
     ASSERT(state_.destroyed_);
     ASSERT(state_.filter_call_state_ == 0);
@@ -785,6 +826,7 @@ public:
    * Instructs the FilterManager to not create a filter chain. This makes it possible to issue
    * a local reply without the overhead of creating and traversing the filters.
    */
+   // 指示 FilterManager 不创建过滤器链。这使得发出本地回复成为可能，而无需创建和遍历过滤器的开销。
   void skipFilterChainCreation() {
     ASSERT(!state_.created_filter_chain_);
     state_.created_filter_chain_ = true;
@@ -852,6 +894,9 @@ protected:
   };
 
   State& state() { return state_; }
+
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() { return tcloud_map_; }
+
 
 private:
   friend class DownstreamFilterManager;
@@ -1009,6 +1054,9 @@ private:
   // clang-format on
 
   State state_;
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 // The DownstreamFilterManager has explicit handling to send local replies.
@@ -1024,9 +1072,10 @@ public:
                           const LocalReply::LocalReply& local_reply, Http::Protocol protocol,
                           TimeSource& time_source,
                           StreamInfo::FilterStateSharedPtr parent_filter_state,
-                          StreamInfo::FilterState::LifeSpan filter_state_life_span)
+                          StreamInfo::FilterState::LifeSpan filter_state_life_span,
+                          std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr)
       : FilterManager(filter_manager_callbacks, dispatcher, connection, stream_id, account,
-                      proxy_100_continue, buffer_limit, filter_chain_factory),
+                      proxy_100_continue, buffer_limit, filter_chain_factory, tcloud_map),
         stream_info_(protocol, time_source, connection.connectionInfoProviderSharedPtr(),
                      parent_filter_state, filter_state_life_span),
         local_reply_(local_reply) {}

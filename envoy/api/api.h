@@ -20,6 +20,9 @@ namespace Api {
 /**
  * "Public" API that different components use to interact with the various system abstractions.
  */
+// API 是一个不同组件用来与各种系统抽象进行交互的公共 API
+// 从其实现类 Envoy::Api::Impl 来看, 里面包含了部分系统组件, 例如 fileSystem, timeSystem
+// allocateDispatcher 方法就是创建一个新的 Dispatcher 并以指定的名字命名。
 class Api {
 public:
   virtual ~Api() = default;

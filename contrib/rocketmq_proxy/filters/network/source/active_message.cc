@@ -19,41 +19,55 @@ namespace Extensions {
 namespace NetworkFilters {
 namespace RocketmqProxy {
 
+// 初始化
 ActiveMessage::ActiveMessage(ConnectionManager& conn_manager, RemotingCommandPtr&& request)
     : connection_manager_(conn_manager), request_(std::move(request)) {
   metadata_ = std::make_shared<MessageMetadata>();
+  // 这里直接就将 request 解析到了 metadata
   MetadataHelper::parseRequest(request_, metadata_);
+  // 默认传参 is_inc = true, 进行数据统计
   updateActiveRequestStats();
 }
 
 ActiveMessage::~ActiveMessage() { updateActiveRequestStats(false); }
 
+// 看看 ConnectionManager 的 Config 的 createRouter() 的逻辑
 void ActiveMessage::createFilterChain() { router_ = connection_manager_.config().createRouter(); }
 
+// 将 request 发送至上游集群
 void ActiveMessage::sendRequestToUpstream() {
+  // router 的逻辑要细看
   if (!router_) {
     createFilterChain();
   }
   router_->sendRequestToUpstream(*this);
 }
 
+// 获取 Route, 该结构体包括 RouteEntry
+// 所以该请求的 Route 是通过请求的 metadata 生成的。
 Router::RouteConstSharedPtr ActiveMessage::route() {
   if (cached_route_) {
     return cached_route_.value();
   }
+  // metadata_ 初始化 ActiveMessage 时从 request 中提取的。
   const std::string& topic_name = metadata_->topicName();
   ENVOY_LOG(trace, "fetch route for topic: {}", topic_name);
+
+  // 通过 connection_manager_ 获取 Router::Config
+  // 再通过 route(*metadata_) 方法获取 Route, 其实最终调用的是 route_matcher_->route(metadata);
   Router::RouteConstSharedPtr route = connection_manager_.config().routerConfig().route(*metadata_);
   cached_route_ = route;
   return cached_route_.value();
 }
 
+// 无论是 onError 还是 onReset 最终处理的都是 read_callbacks_ 的 connection()
 void ActiveMessage::onError(absl::string_view error_message) {
   connection_manager_.onError(request_, error_message);
 }
 
 const RemotingCommandPtr& ActiveMessage::downstreamRequest() const { return request_; }
 
+// TODO 处理 Pop 请求的, 先跳过
 void ActiveMessage::fillAckMessageDirective(Buffer::Instance& buffer, const std::string& group,
                                             const std::string& topic,
                                             const AckMessageDirective& directive) {
@@ -89,6 +103,7 @@ void ActiveMessage::fillAckMessageDirective(Buffer::Instance& buffer, const std:
   }
 }
 
+// 这里其实最终调用的还是 connection
 void ActiveMessage::sendResponseToDownstream() {
   if (request_->code() == enumToSignedInt(RequestCode::PopMessage)) {
     // Fill ack message directive
@@ -103,6 +118,8 @@ void ActiveMessage::sendResponseToDownstream() {
 
   // If acknowledgment of the message is successful, we need to erase the ack directive from
   // manager.
+  // 如果消息确认成功，我们需要从管理器中删除 ack 指令。
+  // (还有一点没理解, 应该是 RocketMQ 本身的知识点? )
   if (request_->code() == enumToSignedInt(RequestCode::AckMessage) &&
       response_->code() == enumToSignedInt(ResponseCode::Success)) {
     auto ack_header = request_->typedCustomHeader<AckMessageRequestHeader>();
@@ -110,7 +127,9 @@ void ActiveMessage::sendResponseToDownstream() {
   }
 
   if (response_) {
+    // resp 的 opaque 要和 req 的 opaque 相同
     response_->opaque(request_->opaque());
+    // 最终其实是将数据写入 connection。
     connection_manager_.sendResponseToDownstream(response_);
   }
 }
@@ -225,16 +244,20 @@ void ActiveMessage::onQueryTopicRoute() {
 
 void ActiveMessage::onReset() { connection_manager_.deferredDelete(*this); }
 
+// 在上游返回 rsp 时对上游结果进行解析
+// conn_data 应该是包含了和上游建立连接 connection 的结构体。
 bool ActiveMessage::onUpstreamData(Envoy::Buffer::Instance& data, bool end_stream,
                                    ConnectionDataPtr& conn_data) {
   bool underflow = false;
   bool has_error = false;
+  // 解析 data 数据成为 RemotingCommand (response) 结构体
   response_ = Decoder::decode(data, underflow, has_error, downstreamRequest()->code());
   if (underflow && !end_stream) {
     ENVOY_LOG(trace, "Wait for more data from upstream");
     return false;
   }
 
+  // pop 消息先跳过
   if (enumToSignedInt(RequestCode::PopMessage) == request_->code() && router_ != nullptr) {
     recordPopRouteInfo(router_->upstreamHost());
   }
@@ -281,6 +304,7 @@ void ActiveMessage::recordPopRouteInfo(Upstream::HostDescriptionConstSharedPtr h
   }
 }
 
+// 进行数据统计
 void ActiveMessage::updateActiveRequestStats(bool is_inc) {
   if (is_inc) {
     connection_manager_.stats().request_active_.inc();

@@ -14,6 +14,10 @@ namespace Http1 {
 /**
  * An active client for HTTP/1.1 connections.
  */
+ // 相同的名字 ActiveClient 但是在几个 ns 下面都有
+ // Envoy::Http::Http1::ActiveClient  继承自 Envoy::Http::ActiveClient
+ // Envoy::Http::ActiveClient 继承自 Envoy::ConnectionPool::ActiveClient
+ // Envoy::ConnectionPool::ActiveClient 继承自 Network::ConnectionCallbacks
 class ActiveClient : public Envoy::Http::ActiveClient {
 public:
   ActiveClient(HttpConnPoolImplBase& parent, OptRef<Upstream::Host::CreateConnectionData> data);

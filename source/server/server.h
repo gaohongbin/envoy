@@ -45,6 +45,7 @@
 #include "source/server/listener_manager_impl.h"
 #include "source/server/overload_manager_impl.h"
 #include "source/server/worker_impl.h"
+#include "source/common/tcloud/tcloud_map_impl.hpp"
 
 #include "absl/container/node_hash_map.h"
 #include "absl/types/optional.h"
@@ -98,6 +99,7 @@ struct ServerStats {
 /**
  * Interface for creating service components during boot.
  */
+// 启动期间创建服务组件的接口。
 class ComponentFactory {
 public:
   virtual ~ComponentFactory() = default;
@@ -168,6 +170,7 @@ private:
 // ServerFactoryContextImpl implements both ServerFactoryContext and
 // TransportSocketFactoryContext for convenience as these two contexts
 // share common member functions and member variables.
+// ServerFactoryContextImpl 为方便起见同时实现 ServerFactoryContext 和 TransportSocketFactoryContext，因为这两个上下文共享公共成员函数和成员变量。
 class ServerFactoryContextImpl : public Configuration::ServerFactoryContext,
                                  public Configuration::TransportSocketFactoryContext {
 public:
@@ -214,6 +217,8 @@ public:
                : server_.messageValidationContext().staticValidationVisitor();
   }
 
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override { return server_.getTcloudMap(); }
+
 private:
   Instance& server_;
   Stats::ScopeSharedPtr server_scope_;
@@ -222,6 +227,7 @@ private:
 /**
  * This is the actual full standalone server which stitches together various common components.
  */
+ // 这是实际的完整独立服务器，它将各种通用组件拼接在一起.  所以真正的实现逻辑在这里
 class InstanceImpl final : Logger::Loggable<Logger::Id::main>,
                            public Instance,
                            public ServerLifecycleNotifier {
@@ -297,6 +303,11 @@ public:
 
   void setSinkPredicates(std::unique_ptr<Envoy::Stats::SinkPredicates>&& sink_predicates) override {
     stats_store_.setSinkPredicates(std::move(sink_predicates));
+  }
+
+  // tcloud 泳道
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override {
+    return tcloud_map_;
   }
 
   // ServerLifecycleNotifier
@@ -400,6 +411,9 @@ private:
   Regex::EnginePtr regex_engine_;
 
   bool stats_flush_in_progress_ : 1;
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 
   template <class T>
   class LifecycleCallbackHandle : public ServerLifecycleNotifier::Handle, RaiiListElement<T> {
