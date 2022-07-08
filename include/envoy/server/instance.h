@@ -29,6 +29,7 @@
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/tracing/http_tracer.h"
 #include "envoy/upstream/cluster_manager.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 namespace Envoy {
 namespace Server {
@@ -255,6 +256,9 @@ public:
    */
   virtual void
   setDefaultTracingConfig(const envoy::config::trace::v3::Tracing& tracing_config) PURE;
+
+  // tcloud 泳道
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() PURE;
 };
 
 } // namespace Server

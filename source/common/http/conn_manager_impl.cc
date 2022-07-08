@@ -29,6 +29,7 @@
 #include "common/common/fmt.h"
 #include "common/common/scope_tracker.h"
 #include "common/common/utility.h"
+#include "common/common/logger.h"
 #include "common/http/codes.h"
 #include "common/http/conn_manager_utility.h"
 #include "common/http/exception.h"
@@ -88,7 +89,8 @@ ConnectionManagerImpl::ConnectionManagerImpl(ConnectionManagerConfig& config,
                                              const LocalInfo::LocalInfo& local_info,
                                              Upstream::ClusterManager& cluster_manager,
                                              Server::OverloadManager& overload_manager,
-                                             TimeSource& time_source)
+                                             TimeSource& time_source,
+                                             std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map = nullptr)
     : config_(config), stats_(config_.stats()),
       conn_length_(new Stats::HistogramCompletableTimespanImpl(
           stats_.named_.downstream_cx_length_ms_, time_source)),
@@ -103,7 +105,20 @@ ConnectionManagerImpl::ConnectionManagerImpl(ConnectionManagerConfig& config,
           overload_state_.getState(Server::OverloadActionNames::get().DisableHttpKeepAlive)),
       time_source_(time_source),
       enable_internal_redirects_with_body_(Runtime::runtimeFeatureEnabled(
-          "envoy.reloadable_features.internal_redirects_with_body")) {}
+          "envoy.reloadable_features.internal_redirects_with_body")), 
+      tcloud_map_(tcloud_map) {
+  if (tcloud_map) {
+    ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map is not null");
+  } else {
+    ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map is null");
+  }
+
+  if (tcloud_map_) {
+    ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map_ is not null");
+  } else {
+    ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map_ is null");
+  }
+}
 
 const ResponseHeaderMap& ConnectionManagerImpl::continueHeader() {
   static const auto headers = createHeaderMap<ResponseHeaderMapImpl>(
@@ -259,7 +274,17 @@ RequestDecoder& ConnectionManagerImpl::newStream(ResponseEncoder& response_encod
   }
 
   ENVOY_CONN_LOG(debug, "new stream", read_callbacks_->connection());
+  if (tcloud_map_) {
+    ENVOY_CONN_LOG(debug, "tcloud ConnectionManagerImpl::newStream tcloud_map_ is not null", read_callbacks_->connection());
+  } else {
+    ENVOY_CONN_LOG(debug, "tcloud ConnectionManagerImpl::newStream tcloud_map_ is null", read_callbacks_->connection());
+  }
   ActiveStreamPtr new_stream(new ActiveStream(*this, response_encoder.getStream().bufferLimit()));
+  if (new_stream->connection_manager_.getTcloudMap()) {
+    ENVOY_CONN_LOG(debug, "tcloud new_stream->connection_manager_.getTcloudMap() tcloud_map_ is not null", read_callbacks_->connection());
+  } else {
+    ENVOY_CONN_LOG(debug, "tcloud new_stream->connection_manager_.getTcloudMap() tcloud_map_ is null", read_callbacks_->connection());
+  }
   new_stream->state_.is_internally_created_ = is_internally_created;
   new_stream->response_encoder_ = &response_encoder;
   new_stream->response_encoder_->getStream().addCallbacks(*new_stream);
@@ -843,6 +868,29 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   ScopeTrackerScopeState scope(this,
                                connection_manager_.read_callbacks_->connection().dispatcher());
   request_headers_ = std::move(headers);
+
+  ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders tcloud_map_ 指针 {}", *this, connection_manager_.getTcloudMap());
+  // tcloud 泳道
+  if (connection_manager_.getTcloudMap()) {
+
+    if (!request_headers_->getTcloudLaneValue().empty() && !request_headers_->getSw3Value().empty()) {
+      connection_manager_.getTcloudMap()->setKV(request_headers_->getSw3Value(), request_headers_->getTcloudLaneValue());
+      ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders setKV, key = {}, value = {} :\n{}",
+                       *this, request_headers_->getSw3Value(), request_headers_->getTcloudLaneValue(), *request_headers_);
+      ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
+
+    } else if (!request_headers_->getSw3Value().empty()) {
+      absl::string_view tcloudLane = connection_manager_.getTcloudMap()->getValue(request_headers_->getSw3Value());
+      request_headers_->setTcloudLane(tcloudLane);
+      ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n{}",
+                       *this, request_headers_->getSw3Value(), tcloudLane, *request_headers_);
+      ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
+    }
+  } else {
+    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is null ", *this );
+  }
+
+
   filter_manager_.requestHeadersInitialized();
   if (request_header_timer_ != nullptr) {
     request_header_timer_->disableTimer();

@@ -15,6 +15,7 @@
 #include "envoy/stats/scope.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "common/protobuf/protobuf.h"
 
@@ -99,6 +100,9 @@ public:
    * @return reference to the Api object
    */
   virtual Api::Api& api() PURE;
+
+  // tcloud 泳道
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() PURE;
 };
 
 class TransportSocketConfigFactory : public Config::TypedFactory {

@@ -245,6 +245,9 @@ public:
    * @return TRUE if the worker has started or FALSE if not.
    */
   virtual bool isWorkerStarted() PURE;
+
+  // tcloud 泳道
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() PURE;
 };
 
 // overload operator| to allow ListenerManager::listeners(ListenerState) to be called using a

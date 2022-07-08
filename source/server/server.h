@@ -37,6 +37,7 @@
 #include "common/runtime/runtime_impl.h"
 #include "common/secret/secret_manager_impl.h"
 #include "common/upstream/health_discovery_service.h"
+#include "common/tcloud/tcloud_map_impl.h"
 
 #include "server/admin/admin.h"
 #include "server/configuration_impl.h"
@@ -209,6 +210,8 @@ public:
                : server_.messageValidationContext().staticValidationVisitor();
   }
 
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override { return server_.getTcloudMap(); }
+
 private:
   Instance& server_;
   Stats::ScopePtr server_scope_;
@@ -288,6 +291,11 @@ public:
 
   void setDefaultTracingConfig(const envoy::config::trace::v3::Tracing& tracing_config) override {
     http_context_.setDefaultTracingConfig(tracing_config);
+  }
+
+  // tcloud 泳道
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override {
+    return tcloud_map_;
   }
 
   // ServerLifecycleNotifier
@@ -384,6 +392,9 @@ private:
   ListenerHooks& hooks_;
 
   ServerFactoryContextImpl server_contexts_;
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map_;
 
   template <class T>
   class LifecycleCallbackHandle : public ServerLifecycleNotifier::Handle, RaiiListElement<T> {

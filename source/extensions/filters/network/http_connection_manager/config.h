@@ -279,7 +279,7 @@ private:
 /**
  * Factory to create an HttpConnectionManager outside of a Network Filter Chain.
  */
-class HttpConnectionManagerFactory {
+class HttpConnectionManagerFactory : Logger::Loggable<Logger::Id::config> {
 public:
   static std::function<Http::ApiListenerPtr()> createHttpConnectionManagerFactoryFromProto(
       const envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&

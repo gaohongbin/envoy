@@ -255,6 +255,10 @@ Server::DrainManager& ListenerFactoryContextBaseImpl::drainManager() { return *d
 // Must be overridden
 Init::Manager& ListenerFactoryContextBaseImpl::initManager() { NOT_IMPLEMENTED_GCOVR_EXCL_LINE; }
 
+std::shared_ptr<Envoy::TcloudMap::TcloudMap> ListenerFactoryContextBaseImpl::getTcloudMap() {
+  return server_.getTcloudMap();
+}
+
 ListenerImpl::ListenerImpl(const envoy::config::listener::v3::Listener& config,
                            const std::string& version_info, ListenerManagerImpl& parent,
                            const std::string& name, bool added_via_api, bool workers_started,
@@ -366,6 +370,13 @@ ListenerImpl::ListenerImpl(ListenerImpl& origin,
         ASSERT(workers_started_);
         parent_.inPlaceFilterChainUpdate(*this);
       }) {
+
+  if (parent_.getTcloudMap()) {
+    ENVOY_LOG(debug, "envoy/source/server/listener_implc.cc ListenerImpl parent_ tcloud_map is not null");
+  } else {
+    ENVOY_LOG(debug, "envoy/source/server/listener_implc.cc ListenerImpl parent_ tcloud_map is null");
+  }
+
   buildAccessLog();
   auto socket_type = Network::Utility::protobufAddressSocketType(config.address());
   buildListenSocketOptions(socket_type);
@@ -511,7 +522,7 @@ void ListenerImpl::buildFilterChains() {
       parent_.server_.admin(), parent_.server_.sslContextManager(), listenerScope(),
       parent_.server_.clusterManager(), parent_.server_.localInfo(), parent_.server_.dispatcher(),
       parent_.server_.stats(), parent_.server_.singletonManager(), parent_.server_.threadLocal(),
-      validation_visitor_, parent_.server_.api(), parent_.server_.options());
+      validation_visitor_, parent_.server_.api(), parent_.server_.options(), parent_.server_.getTcloudMap());
   transport_factory_context.setInitManager(*dynamic_init_manager_);
   ListenerFilterChainFactoryBuilder builder(*this, transport_factory_context);
   filter_chain_manager_.addFilterChains(
@@ -669,6 +680,10 @@ Stats::Scope& PerListenerFactoryContextImpl::listenerScope() {
   return listener_factory_context_base_->listenerScope();
 }
 Init::Manager& PerListenerFactoryContextImpl::initManager() { return listener_impl_.initManager(); }
+
+std::shared_ptr<Envoy::TcloudMap::TcloudMap> PerListenerFactoryContextImpl::getTcloudMap() {
+  return listener_factory_context_base_->getTcloudMap();
+}
 
 bool ListenerImpl::createNetworkFilterChain(
     Network::Connection& connection,

@@ -6,6 +6,7 @@
 #include "common/http/conn_manager_impl.h"
 #include "common/network/resolver_impl.h"
 #include "common/protobuf/utility.h"
+#include "common/common/logger.h"
 
 #include "server/drain_manager_impl.h"
 #include "server/listener_manager_impl.h"
@@ -34,6 +35,13 @@ void ApiListenerImplBase::SyntheticReadCallbacks::SyntheticConnection::raiseConn
 HttpApiListener::HttpApiListener(const envoy::config::listener::v3::Listener& config,
                                  ListenerManagerImpl& parent, const std::string& name)
     : ApiListenerImplBase(config, parent, name) {
+
+//  if (factory_context_.getTcloudMap()) {
+//    ENVOY_LOG(debug, "tcloud HttpApiListener::HttpApiListener factory_context_.getTcloudMap() is not null");
+//  } else {
+//    ENVOY_LOG(debug, "tcloud HttpApiListener::HttpApiListener factory_context_.getTcloudMap() is null");
+//  }
+
   auto typed_config = MessageUtil::anyConvertAndValidate<
       envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager>(
       config.api_listener().api_listener(), factory_context_.messageValidationVisitor());

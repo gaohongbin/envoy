@@ -480,6 +480,15 @@ void InstanceImpl::initialize(const Options& options,
     }
   }
 
+  // tcloud 相关
+  tcloud_map_ = std::make_shared<Envoy::TcloudMap::TcloudMapImpl>();
+  if (tcloud_map_) {
+    ENVOY_LOG(debug, "envoy/source/server/server.cc tcloud_map_ is not null");
+  } else {
+    ENVOY_LOG(debug, "envoy/source/server/server.cc tcloud_map_ is null");
+  }
+  // worker_factory_.setTcloudMap(tcloud_map_);
+
   // Workers get created first so they register for thread local updates.
   listener_manager_ = std::make_unique<ListenerManagerImpl>(
       *this, listener_component_factory_, worker_factory_, bootstrap_.enable_dispatcher_stats());

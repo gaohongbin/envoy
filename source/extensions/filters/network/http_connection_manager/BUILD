@@ -33,6 +33,7 @@ envoy_cc_extension(
         "//include/envoy/server:admin_interface",
         "//include/envoy/server:options_interface",
         "//include/envoy/stats:stats_interface",
+        "//include/envoy/tcloud:tcloud_map_interface",
         "//source/common/access_log:access_log_lib",
         "//source/common/common:minimal_logger_lib",
         "//source/common/config:utility_lib",

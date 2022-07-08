@@ -29,6 +29,7 @@
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/tracing/http_tracer.h"
 #include "envoy/upstream/cluster_manager.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "common/common/assert.h"
 #include "common/common/macros.h"
@@ -237,6 +238,12 @@ public:
    * process context. Will be unset when running in validation mode.
    */
   virtual ProcessContextOptRef processContext() PURE;
+
+  /**
+  *
+  * @return TcloudMap 用来实现泳道功能, 需要通过 FactoryContext 传给 ConnectionManagerImpl 用来初始化。
+  */
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() PURE;
 };
 
 /**

@@ -153,6 +153,7 @@ envoy_cc_library(
         "//include/envoy/network:filter_interface",
         "//source/common/common:assert_lib",
         "//source/common/common:linked_object",
+        "//source/common/tcloud:tcloud_map_lib",
     ],
 )
 

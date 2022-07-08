@@ -612,8 +612,8 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw3 = {}", *callbacks_, traceId);
   ENVOY_STREAM_LOG(debug, "tcloud router decoding headers:\n{}", *callbacks_, headers);
 
-  headers.setTcloudLane("dev1");
-  ENVOY_STREAM_LOG(debug, "tcloud router filter envoy set tcloud lane = dev1", *callbacks_);
+  // headers.setTcloudLane("dev1");
+  // ENVOY_STREAM_LOG(debug, "tcloud router filter envoy set tcloud lane = dev1", *callbacks_);
 
 
   route_entry_->finalizeRequestHeaders(headers, callbacks_->streamInfo(),

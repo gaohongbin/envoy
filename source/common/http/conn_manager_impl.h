@@ -34,6 +34,7 @@
 #include "envoy/stream_info/filter_state.h"
 #include "envoy/tracing/http_tracer.h"
 #include "envoy/upstream/upstream.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "common/buffer/watermark_buffer.h"
 #include "common/common/dump_state_utils.h"
@@ -66,7 +67,8 @@ public:
                         Random::RandomGenerator& random_generator, Http::Context& http_context,
                         Runtime::Loader& runtime, const LocalInfo::LocalInfo& local_info,
                         Upstream::ClusterManager& cluster_manager,
-                        Server::OverloadManager& overload_manager, TimeSource& time_system);
+                        Server::OverloadManager& overload_manager, TimeSource& time_system,
+                        std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map);
   ~ConnectionManagerImpl() override;
 
   static ConnectionManagerStats generateStats(const std::string& prefix, Stats::Scope& scope);
@@ -110,6 +112,8 @@ public:
   }
 
   TimeSource& timeSource() { return time_source_; }
+
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() { return tcloud_map_; }
 
 private:
   struct ActiveStream;
@@ -451,6 +455,9 @@ private:
   TimeSource& time_source_;
   bool remote_close_{};
   bool enable_internal_redirects_with_body_{};
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map_;
 };
 
 } // namespace Http

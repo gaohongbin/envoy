@@ -126,6 +126,9 @@ public:
   Configuration::TransportSocketFactoryContext& getTransportSocketFactoryContext() const override;
   Stats::Scope& listenerScope() override;
 
+  // tcloud
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override;
+
   // DrainDecision
   bool drainClose() const override {
     return drain_manager_->drainClose() || server_.drainManager().drainClose();
@@ -193,6 +196,8 @@ public:
   Configuration::TransportSocketFactoryContext& getTransportSocketFactoryContext() const override;
 
   Stats::Scope& listenerScope() override;
+
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override;
 
   // ListenerFactoryContext
   const Network::ListenerConfig& listenerConfig() const override;

@@ -90,6 +90,13 @@ bool ListenSocketCreationParams::operator!=(const ListenSocketCreationParams& rh
 std::vector<Network::FilterFactoryCb> ProdListenerComponentFactory::createNetworkFilterFactoryList_(
     const Protobuf::RepeatedPtrField<envoy::config::listener::v3::Filter>& filters,
     Server::Configuration::FilterChainFactoryContext& filter_chain_factory_context) {
+
+  if(filter_chain_factory_context.getTcloudMap()) {
+    ENVOY_LOG(debug, "tcloud ProdListenerComponentFactory filter_chain_factory_context->getTcloudMap() is not null");
+  } else {
+    ENVOY_LOG(debug, "tcloud ProdListenerComponentFactory filter_chain_factory_context->getTcloudMap() is null");
+  }
+
   std::vector<Network::FilterFactoryCb> ret;
   for (ssize_t i = 0; i < filters.size(); i++) {
     const auto& proto_config = filters[i];
@@ -345,6 +352,12 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
       // TODO(junr03): dispatch to different concrete constructors when there are other
       // ApiListenerImplBase derived classes.
       api_listener_ = std::make_unique<HttpApiListener>(config, *this, config.name());
+      if (getTcloudMap()) {
+        ENVOY_LOG(debug, "tcloud ListenerManagerImpl::addOrUpdateListener getTcloudMap() is not null");
+      } else {
+        ENVOY_LOG(debug, "tcloud ListenerManagerImpl::addOrUpdateListener getTcloudMap() is null");
+      }
+      ENVOY_LOG(debug, "tcloud ListenerManagerImpl::addOrUpdateListener 执行到了这里, is not null or is null");
       return true;
     } else {
       ENVOY_LOG(warn, "listener {} can not be added because currently only one ApiListener is "
@@ -982,7 +995,13 @@ ListenerFilterChainFactoryBuilder::ListenerFilterChainFactoryBuilder(
     ListenerImpl& listener,
     Server::Configuration::TransportSocketFactoryContextImpl& factory_context)
     : listener_(listener), validator_(listener.validation_visitor_),
-      listener_component_factory_(listener.parent_.factory_), factory_context_(factory_context) {}
+      listener_component_factory_(listener.parent_.factory_), factory_context_(factory_context) {
+//  if (listener_.parent_.getTcloudMap()) {
+//    ENVOY_LOG(debug, "tcloud 1 envoy/source/server/listener_manager_impl.cc listener.parent_.getTcloudMap() tcloud_map is not null");
+//  } else {
+//    ENVOY_LOG(debug, "tcloud 1 envoy/source/server/listener_manager_impl.cc listener.parent_.getTcloudMap() tcloud_map is null");
+//  }
+}
 
 Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildFilterChain(
     const envoy::config::listener::v3::FilterChain& filter_chain,
@@ -997,6 +1016,11 @@ Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildF
   // If the cluster doesn't have transport socket configured, then use the default "raw_buffer"
   // transport socket or BoringSSL-based "tls" transport socket if TLS settings are configured.
   // We copy by value first then override if necessary.
+//  if (listener_.parent_.getTcloudMap()) {
+//    ENVOY_LOG(debug, "tcloud 2 envoy/source/server/listener_manager_impl.cc listener.parent_.getTcloudMap() tcloud_map is not null");
+//  } else {
+//    ENVOY_LOG(debug, "tcloud 2 envoy/source/server/listener_manager_impl.cc listener.parent_.getTcloudMap() tcloud_map is null");
+//  }
   auto transport_socket = filter_chain.transport_socket();
   if (!filter_chain.has_transport_socket()) {
     if (filter_chain.has_hidden_envoy_deprecated_tls_context()) {

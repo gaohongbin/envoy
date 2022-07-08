@@ -19,11 +19,12 @@ public:
                                     Singleton::Manager& singleton_manager,
                                     ThreadLocal::SlotAllocator& tls,
                                     ProtobufMessage::ValidationVisitor& validation_visitor,
-                                    Api::Api& api, const Server::Options& options)
+                                    Api::Api& api, const Server::Options& options,
+                                    std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map = nullptr)
       : admin_(admin), context_manager_(context_manager), stats_scope_(stats_scope),
         cluster_manager_(cm), local_info_(local_info), dispatcher_(dispatcher), stats_(stats),
         singleton_manager_(singleton_manager), tls_(tls), validation_visitor_(validation_visitor),
-        api_(api), options_(options) {}
+        api_(api), options_(options), tcloud_map_(tcloud_map) {}
 
   /**
    * Pass an init manager to register dynamic secret provider.
@@ -54,6 +55,9 @@ public:
   Api::Api& api() override { return api_; }
   const Server::Options& options() override { return options_; }
 
+  // tcloud 泳道
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override { return tcloud_map_; }
+
 private:
   Server::Admin& admin_;
   Ssl::ContextManager& context_manager_;
@@ -68,6 +72,9 @@ private:
   ProtobufMessage::ValidationVisitor& validation_visitor_;
   Api::Api& api_;
   const Server::Options& options_;
+
+  // tcloud 泳道
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map_;
 };
 
 } // namespace Configuration

@@ -127,5 +127,10 @@ void FilterManagerImpl::onResumeWriting(ActiveWriteFilter* filter,
   }
 }
 
+void FilterManagerImpl::setTcloudMap(std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map) {
+
+  tcloud_map_ = tcloud_map;
+}
+
 } // namespace Network
 } // namespace Envoy

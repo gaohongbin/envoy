@@ -11,6 +11,7 @@
 #include "envoy/server/options.h"
 #include "envoy/server/transport_socket_config.h"
 #include "envoy/thread_local/thread_local.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "common/common/logger.h"
 #include "common/init/manager_impl.h"
@@ -78,6 +79,9 @@ public:
   Configuration::ServerFactoryContext& getServerFactoryContext() const override;
   Configuration::TransportSocketFactoryContext& getTransportSocketFactoryContext() const override;
   Stats::Scope& listenerScope() override;
+
+  // tcloud
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override { return parent_context_.getTcloudMap(); };
 
   void startDraining() override { is_draining_.store(true); }
 
@@ -163,6 +167,9 @@ public:
   envoy::config::core::v3::TrafficDirection direction() const override;
   Network::DrainDecision& drainDecision() override;
   Stats::Scope& listenerScope() override;
+
+  // tcloud
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override { return server_.getTcloudMap(); };
 
 private:
   Server::Instance& server_;

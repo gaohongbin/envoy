@@ -202,6 +202,11 @@ HttpConnectionManagerFilterConfigFactory::createFilterFactoryFromProtoTyped(
     const envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&
         proto_config,
     Server::Configuration::FactoryContext& context) {
+  if (context.getTcloudMap()) {
+    ENVOY_LOG(debug, "tcloud context.getTcloudMap() is not null");
+  } else {
+    ENVOY_LOG(debug, "tcloud context.getTcloudMap() is null");
+  }
   Utility::Singletons singletons = Utility::createSingletons(context);
 
   auto filter_config = Utility::createConfig(
@@ -214,10 +219,16 @@ HttpConnectionManagerFilterConfigFactory::createFilterFactoryFromProtoTyped(
   // Keep in mind the lambda capture list **doesn't** determine the destruction order, but it's fine
   // as these captured objects are also global singletons.
   return [singletons, filter_config, &context](Network::FilterManager& filter_manager) -> void {
+//    if (context.getTcloudMap()) {
+//      ENVOY_LOG(debug, "tcloud http_connection_manager config.cc context.getTcloudMap() is not null");
+//    } else {
+//      ENVOY_LOG(debug, "tcloud http_connection_manager config.cc context.getTcloudMap() is null");
+//    }
+
     filter_manager.addReadFilter(Network::ReadFilterSharedPtr{new Http::ConnectionManagerImpl(
         *filter_config, context.drainDecision(), context.api().randomGenerator(),
         context.httpContext(), context.runtime(), context.localInfo(), context.clusterManager(),
-        context.overloadManager(), context.dispatcher().timeSource())});
+        context.overloadManager(), context.dispatcher().timeSource(), context.getTcloudMap())});
   };
 }
 
@@ -750,11 +761,23 @@ HttpConnectionManagerFactory::createHttpConnectionManagerFactoryFromProto(
   // reference count.
   // Keep in mind the lambda capture list **doesn't** determine the destruction order, but it's fine
   // as these captured objects are also global singletons.
+
+  if (context.getTcloudMap()) {
+    ENVOY_LOG(debug, "tcloud createHttpConnectionManagerFactoryFromProto context.getTcloudMap() is not null");
+  } else {
+    ENVOY_LOG(debug, "tcloud createHttpConnectionManagerFactoryFromProto context.getTcloudMap() is null");
+  }
+
   return [singletons, filter_config, &context, &read_callbacks]() -> Http::ApiListenerPtr {
+//    if (context.getTcloudMap()) {
+//      ENVOY_LOG(debug, "tcloud createHttpConnectionManagerFactoryFromProto context.getTcloudMap() is not null");
+//    } else {
+//      ENVOY_LOG(debug, "tcloud createHttpConnectionManagerFactoryFromProto context.getTcloudMap() is null");
+//    }
     auto conn_manager = std::make_unique<Http::ConnectionManagerImpl>(
         *filter_config, context.drainDecision(), context.api().randomGenerator(),
         context.httpContext(), context.runtime(), context.localInfo(), context.clusterManager(),
-        context.overloadManager(), context.dispatcher().timeSource());
+        context.overloadManager(), context.dispatcher().timeSource(), context.getTcloudMap());
 
     // This factory creates a new ConnectionManagerImpl in the absence of its usual environment as
     // an L4 filter, so this factory needs to take a few actions.
