@@ -68,7 +68,7 @@ public:
                         Runtime::Loader& runtime, const LocalInfo::LocalInfo& local_info,
                         Upstream::ClusterManager& cluster_manager,
                         Server::OverloadManager& overload_manager, TimeSource& time_system,
-                        std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map);
+                        std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr);
   ~ConnectionManagerImpl() override;
 
   static ConnectionManagerStats generateStats(const std::string& prefix, Stats::Scope& scope);
@@ -113,7 +113,7 @@ public:
 
   TimeSource& timeSource() { return time_source_; }
 
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() { return tcloud_map_; }
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() { return tcloud_map_; }
 
 private:
   struct ActiveStream;
@@ -457,7 +457,7 @@ private:
   bool enable_internal_redirects_with_body_{};
 
   // tcloud 相关
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map_;
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 } // namespace Http

@@ -102,7 +102,7 @@ public:
   virtual Api::Api& api() PURE;
 
   // tcloud 泳道
-  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() PURE;
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() PURE;
 };
 
 class TransportSocketConfigFactory : public Config::TypedFactory {

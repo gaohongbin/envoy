@@ -255,7 +255,7 @@ Server::DrainManager& ListenerFactoryContextBaseImpl::drainManager() { return *d
 // Must be overridden
 Init::Manager& ListenerFactoryContextBaseImpl::initManager() { NOT_IMPLEMENTED_GCOVR_EXCL_LINE; }
 
-std::shared_ptr<Envoy::TcloudMap::TcloudMap> ListenerFactoryContextBaseImpl::getTcloudMap() {
+std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> ListenerFactoryContextBaseImpl::getTcloudMap() {
   return server_.getTcloudMap();
 }
 
@@ -681,7 +681,7 @@ Stats::Scope& PerListenerFactoryContextImpl::listenerScope() {
 }
 Init::Manager& PerListenerFactoryContextImpl::initManager() { return listener_impl_.initManager(); }
 
-std::shared_ptr<Envoy::TcloudMap::TcloudMap> PerListenerFactoryContextImpl::getTcloudMap() {
+std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> PerListenerFactoryContextImpl::getTcloudMap() {
   return listener_factory_context_base_->getTcloudMap();
 }
 

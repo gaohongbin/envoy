@@ -37,7 +37,7 @@ public:
   using ActiveTcpListenerOptRef = absl::optional<std::reference_wrapper<ActiveTcpListener>>;
 
   ConnectionHandlerImpl(Event::Dispatcher& dispatcher, absl::optional<uint32_t> worker_index,
-      std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map = nullptr);
+      std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr);
 
   // Network::ConnectionHandler
   uint64_t numConnections() const override { return num_handler_connections_; }
@@ -93,7 +93,7 @@ private:
   UnitFloat listener_reject_fraction_{UnitFloat::min()};
 
   // tcloud 相关
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map_;
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 } // namespace Server

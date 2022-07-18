@@ -37,7 +37,7 @@
 #include "common/runtime/runtime_impl.h"
 #include "common/secret/secret_manager_impl.h"
 #include "common/upstream/health_discovery_service.h"
-#include "common/tcloud/tcloud_map_impl.h"
+#include "common/tcloud/tcloud_map_impl.hpp"
 
 #include "server/admin/admin.h"
 #include "server/configuration_impl.h"
@@ -210,7 +210,7 @@ public:
                : server_.messageValidationContext().staticValidationVisitor();
   }
 
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override { return server_.getTcloudMap(); }
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override { return server_.getTcloudMap(); }
 
 private:
   Instance& server_;
@@ -294,7 +294,7 @@ public:
   }
 
   // tcloud 泳道
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override {
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override {
     return tcloud_map_;
   }
 
@@ -394,7 +394,7 @@ private:
   ServerFactoryContextImpl server_contexts_;
 
   // tcloud 相关
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map_;
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 
   template <class T>
   class LifecycleCallbackHandle : public ServerLifecycleNotifier::Handle, RaiiListElement<T> {

@@ -171,7 +171,7 @@ public:
   }
 
   // tcloud 泳道
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override {
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override {
     return server_contexts_.getTcloudMap();
   }
 

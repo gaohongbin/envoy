@@ -82,7 +82,7 @@ void MainImpl::initialize(const envoy::config::bootstrap::v3::Bootstrap& bootstr
   // however, it's become mandatory to process it prior to static Listeners.
   // Otherwise, static Listeners will be configured in assumption that
   // tracing configuration is missing from the bootstrap config.
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map = server.getTcloudMap();
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = server.getTcloudMap();
   if (tcloud_map) {
     ENVOY_LOG(debug, "envoy/source/server/configuration_impl.cc server tcloud_map_ is not null");
   } else {

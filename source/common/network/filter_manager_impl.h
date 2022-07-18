@@ -114,7 +114,7 @@ public:
   FilterStatus onWrite();
 
   // tcloud 相关
-  void setTcloudMap(std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map);
+  void setTcloudMap(std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map);
 
 private:
   struct ActiveReadFilter : public ReadFilterCallbacks, LinkedObject<ActiveReadFilter> {
@@ -171,7 +171,7 @@ private:
   std::list<ActiveWriteFilterPtr> downstream_filters_;
 
   // tcloud 相关
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map_;
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 } // namespace Network

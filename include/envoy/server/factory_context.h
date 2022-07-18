@@ -243,7 +243,7 @@ public:
   *
   * @return TcloudMap 用来实现泳道功能, 需要通过 FactoryContext 传给 ConnectionManagerImpl 用来初始化。
   */
-  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() PURE;
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() PURE;
 };
 
 /**

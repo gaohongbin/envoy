@@ -201,7 +201,7 @@ public:
   bool isWorkerStarted() override { return workers_started_; }
   Http::Context& httpContext() { return server_.httpContext(); }
   ApiListenerOptRef apiListener() override;
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override {
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override {
     return server_.getTcloudMap();
   }
 

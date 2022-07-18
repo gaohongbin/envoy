@@ -258,7 +258,7 @@ public:
   setDefaultTracingConfig(const envoy::config::trace::v3::Tracing& tracing_config) PURE;
 
   // tcloud 泳道
-  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() PURE;
+  virtual std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() PURE;
 };
 
 } // namespace Server

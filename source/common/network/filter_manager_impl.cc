@@ -127,7 +127,7 @@ void FilterManagerImpl::onResumeWriting(ActiveWriteFilter* filter,
   }
 }
 
-void FilterManagerImpl::setTcloudMap(std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map) {
+void FilterManagerImpl::setTcloudMap(std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map) {
 
   tcloud_map_ = tcloud_map;
 }

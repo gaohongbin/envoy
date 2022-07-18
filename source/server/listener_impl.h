@@ -127,7 +127,7 @@ public:
   Stats::Scope& listenerScope() override;
 
   // tcloud
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override;
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override;
 
   // DrainDecision
   bool drainClose() const override {
@@ -197,7 +197,7 @@ public:
 
   Stats::Scope& listenerScope() override;
 
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override;
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override;
 
   // ListenerFactoryContext
   const Network::ListenerConfig& listenerConfig() const override;

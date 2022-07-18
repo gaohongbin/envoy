@@ -81,7 +81,7 @@ public:
   Stats::Scope& listenerScope() override;
 
   // tcloud
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override { return parent_context_.getTcloudMap(); };
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override { return parent_context_.getTcloudMap(); };
 
   void startDraining() override { is_draining_.store(true); }
 
@@ -169,7 +169,7 @@ public:
   Stats::Scope& listenerScope() override;
 
   // tcloud
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override { return server_.getTcloudMap(); };
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override { return server_.getTcloudMap(); };
 
 private:
   Server::Instance& server_;

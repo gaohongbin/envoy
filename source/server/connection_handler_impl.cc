@@ -14,7 +14,7 @@ namespace Envoy {
 namespace Server {
 
 ConnectionHandlerImpl::ConnectionHandlerImpl(Event::Dispatcher& dispatcher,
-                                             absl::optional<uint32_t> worker_index, std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map)
+                                             absl::optional<uint32_t> worker_index, std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map)
     : worker_index_(worker_index), dispatcher_(dispatcher),
       per_handler_stat_prefix_(dispatcher.name() + "."), disable_listeners_(false), tcloud_map_(tcloud_map) {}
 

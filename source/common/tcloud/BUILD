@@ -10,8 +10,7 @@ envoy_package()
 
 envoy_cc_library(
     name = "tcloud_map_lib",
-    srcs = ["tcloud_map_impl.cc"],
-    hdrs = ["tcloud_map_impl.h"],
+    hdrs = ["tcloud_map_impl.hpp"],
     deps = [
         "//include/envoy/tcloud:tcloud_map_interface",
     ],

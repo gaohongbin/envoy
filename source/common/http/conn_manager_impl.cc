@@ -90,7 +90,7 @@ ConnectionManagerImpl::ConnectionManagerImpl(ConnectionManagerConfig& config,
                                              Upstream::ClusterManager& cluster_manager,
                                              Server::OverloadManager& overload_manager,
                                              TimeSource& time_source,
-                                             std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map = nullptr)
+                                             std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map)
     : config_(config), stats_(config_.stats()),
       conn_length_(new Stats::HistogramCompletableTimespanImpl(
           stats_.named_.downstream_cx_length_ms_, time_source)),
@@ -874,13 +874,13 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   if (connection_manager_.getTcloudMap()) {
 
     if (!request_headers_->getTcloudLaneValue().empty() && !request_headers_->getSw3Value().empty()) {
-      connection_manager_.getTcloudMap()->setKV(request_headers_->getSw3Value(), request_headers_->getTcloudLaneValue());
+      connection_manager_.getTcloudMap()->setKV(std::string(request_headers_->getSw3Value()), std::string(request_headers_->getTcloudLaneValue()));
       ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders setKV, key = {}, value = {} :\n{}",
                        *this, request_headers_->getSw3Value(), request_headers_->getTcloudLaneValue(), *request_headers_);
       ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
 
     } else if (!request_headers_->getSw3Value().empty()) {
-      absl::string_view tcloudLane = connection_manager_.getTcloudMap()->getValue(request_headers_->getSw3Value());
+      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(std::string(request_headers_->getSw3Value()));
       request_headers_->setTcloudLane(tcloudLane);
       ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n{}",
                        *this, request_headers_->getSw3Value(), tcloudLane, *request_headers_);

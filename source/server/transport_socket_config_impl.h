@@ -20,7 +20,7 @@ public:
                                     ThreadLocal::SlotAllocator& tls,
                                     ProtobufMessage::ValidationVisitor& validation_visitor,
                                     Api::Api& api, const Server::Options& options,
-                                    std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map = nullptr)
+                                    std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr)
       : admin_(admin), context_manager_(context_manager), stats_scope_(stats_scope),
         cluster_manager_(cm), local_info_(local_info), dispatcher_(dispatcher), stats_(stats),
         singleton_manager_(singleton_manager), tls_(tls), validation_visitor_(validation_visitor),
@@ -56,7 +56,7 @@ public:
   const Server::Options& options() override { return options_; }
 
   // tcloud 泳道
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> getTcloudMap() override { return tcloud_map_; }
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() override { return tcloud_map_; }
 
 private:
   Server::Admin& admin_;
@@ -74,7 +74,7 @@ private:
   const Server::Options& options_;
 
   // tcloud 泳道
-  std::shared_ptr<Envoy::TcloudMap::TcloudMap> tcloud_map_;
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 } // namespace Configuration

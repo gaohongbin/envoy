@@ -481,7 +481,7 @@ void InstanceImpl::initialize(const Options& options,
   }
 
   // tcloud 相关
-  tcloud_map_ = std::make_shared<Envoy::TcloudMap::TcloudMapImpl>();
+  tcloud_map_ = std::make_shared<Envoy::TcloudMap::TcloudMapImpl<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>>();
   if (tcloud_map_) {
     ENVOY_LOG(debug, "envoy/source/server/server.cc tcloud_map_ is not null");
   } else {
