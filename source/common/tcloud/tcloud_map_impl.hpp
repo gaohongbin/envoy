@@ -14,7 +14,7 @@ namespace Envoy {
 namespace TcloudMap {
 
 // 泳道所使用的 map 实现类。
-template <typename Key, typename Value, template <typename> class Policy = NoCachePolicy>
+template <typename Key, typename Value, template <typename> class Policy = FIFOCachePolicy>
 class TcloudMapImpl : public TcloudMap<Key, Value, Policy> {
 
 public:
@@ -31,7 +31,7 @@ public:
     if (defaultTCloudMapSizePtr) {
       max_cache_size = std::size_t(defaultTCloudMapSizePtr);
     } else {
-      max_cache_size = std::size_t(100000);  // 默认十万
+      max_cache_size = std::size_t(50000);  // 默认五万
     }
 
     // 默认泳道名称
@@ -47,6 +47,10 @@ public:
     Clear();
   }
 
+  const Value& getDefaultValue() {
+    return defaultTCloudLane;
+  }
+
   const Value& getValue(const Key &key) {
     Operation_guard lock{safe_op};
     auto elem = GetInternal(key);
@@ -58,7 +62,7 @@ public:
     }
   }
 
-  bool setKV(const Key &key, const Value &value){
+  bool setKV(const Key &key, const Value &value) {
     Operation_guard lock{safe_op};
     auto elem_it = FindElem(key);
 
