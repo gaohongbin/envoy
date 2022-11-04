@@ -873,21 +873,21 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   // tcloud 泳道
   if (connection_manager_.getTcloudMap()) {
 
-    if (!request_headers_->getTcloudLaneValue().empty() && !request_headers_->getSw3Value().empty()) {
-      connection_manager_.getTcloudMap()->setKV(std::string(request_headers_->getSw3Value()), std::string(request_headers_->getTcloudLaneValue()));
+    if (!request_headers_->getTcloudLaneValue().empty() && !request_headers_->getSw8Value().empty()) {
+      connection_manager_.getTcloudMap()->setKV(std::string(request_headers_->getSw8Value()), std::string(request_headers_->getTcloudLaneValue()));
       ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders setKV, key = {}, value = {} :\n{}",
-                       *this, request_headers_->getSw3Value(), request_headers_->getTcloudLaneValue(), *request_headers_);
+                       *this, request_headers_->getSw8Value(), request_headers_->getTcloudLaneValue(), *request_headers_);
       ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
 
-    } else if (!request_headers_->getSw3Value().empty()) {
-      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(std::string(request_headers_->getSw3Value()));
+    } else if (!request_headers_->getSw8Value().empty()) {
+      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(std::string(request_headers_->getSw8Value()));
       request_headers_->setTcloudLane(tcloudLane);
       ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n{}",
-                       *this, request_headers_->getSw3Value(), tcloudLane, *request_headers_);
+                       *this, request_headers_->getSw8Value(), tcloudLane, *request_headers_);
       ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
 
-    } else if (request_headers_->getSw3Value().empty()) {
-      // 如果没有 sw3, 且 存在默认泳道 则插入默认泳道
+    } else if (request_headers_->getSw8Value().empty()) {
+      // 如果没有 sw8, 且 存在默认泳道 则插入默认泳道
       std::string tcloudLane = connection_manager_.getTcloudMap()->getDefaultValue();
       if (!tcloudLane.empty()) {
         request_headers_->setTcloudLane(tcloudLane);

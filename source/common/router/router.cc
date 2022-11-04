@@ -608,8 +608,8 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   /**
   * 在这里做测试, 先往 request 的 header 里面写入固定的泳道名称。 在测试没问题以后, 我们再实现真正的逻辑。
   */
-  absl::string_view traceId = headers.getSw3Value();
-  ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw3 = {}", *callbacks_, traceId);
+  absl::string_view traceId = headers.getSw8Value();
+  ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw8 = {}", *callbacks_, traceId);
   ENVOY_STREAM_LOG(debug, "tcloud router decoding headers:\n{}", *callbacks_, headers);
 
   // headers.setTcloudLane("dev1");
