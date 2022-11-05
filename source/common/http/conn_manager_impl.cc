@@ -886,14 +886,15 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
                        *this, request_headers_->getSw8Value(), tcloudLane, *request_headers_);
       ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
 
-    } else if (request_headers_->getSw8Value().empty()) {
-      // 如果没有 sw8, 且 存在默认泳道 则插入默认泳道
-      std::string tcloudLane = connection_manager_.getTcloudMap()->getDefaultValue();
-      if (!tcloudLane.empty()) {
-        request_headers_->setTcloudLane(tcloudLane);
-      }
-      ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
     }
+//    else if (request_headers_->getSw8Value().empty()) {
+//      // 如果没有 sw8, 且 存在默认泳道 则插入默认泳道
+//      std::string tcloudLane = connection_manager_.getTcloudMap()->getDefaultValue();
+//      if (!tcloudLane.empty()) {
+//        request_headers_->setTcloudLane(tcloudLane);
+//      }
+//      ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
+//    }
   } else {
     ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is null ", *this );
   }
