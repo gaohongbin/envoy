@@ -82,6 +82,7 @@ private:
 /**
  * Maps proto config to runtime config for an HTTP connection manager network filter.
  */
+ // HttpConnectionManagerConfig 是 ConnectionManagerConfig 的一个实现
 class HttpConnectionManagerConfig : Logger::Loggable<Logger::Id::config>,
                                     public Http::FilterChainFactory,
                                     public Http::ConnectionManagerConfig {
@@ -116,6 +117,7 @@ public:
                                         Http::ServerConnectionCallbacks& callbacks) override;
   Http::DateProvider& dateProvider() override { return date_provider_; }
   std::chrono::milliseconds drainTimeout() const override { return drain_timeout_; }
+  // 可以在这里看到 filterFactory() 方法返回去的是 HttpConnectionManagerConfig 自身
   FilterChainFactory& filterFactory() override { return *this; }
   bool generateRequestId() const override { return generate_request_id_; }
   bool preserveExternalRequestId() const override { return preserve_external_request_id_; }

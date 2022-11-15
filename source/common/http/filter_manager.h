@@ -26,6 +26,8 @@
 #include "common/protobuf/utility.h"
 #include "common/stream_info/stream_info_impl.h"
 
+#include "envoy/tcloud/tcloud_map.h"
+
 namespace Envoy {
 namespace Http {
 
@@ -642,13 +644,27 @@ public:
                 uint32_t buffer_limit, FilterChainFactory& filter_chain_factory,
                 const LocalReply::LocalReply& local_reply, Http::Protocol protocol,
                 TimeSource& time_source, StreamInfo::FilterStateSharedPtr parent_filter_state,
-                StreamInfo::FilterState::LifeSpan filter_state_life_span)
+                StreamInfo::FilterState::LifeSpan filter_state_life_span,
+                std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr)
       : filter_manager_callbacks_(filter_manager_callbacks), dispatcher_(dispatcher),
         connection_(connection), stream_id_(stream_id), proxy_100_continue_(proxy_100_continue),
         buffer_limit_(buffer_limit), filter_chain_factory_(filter_chain_factory),
         local_reply_(local_reply),
         stream_info_(protocol, time_source, connection.addressProviderSharedPtr(),
-                     parent_filter_state, filter_state_life_span) {}
+                     parent_filter_state, filter_state_life_span),
+        tcloud_map_(tcloud_map) {
+            if (tcloud_map) {
+              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map is not null");
+            } else {
+              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map is null");
+            }
+
+            if (tcloud_map_) {
+              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is not null");
+            } else {
+              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is null");
+            }
+        }
   ~FilterManager() override {
     ASSERT(state_.destroyed_);
     ASSERT(state_.filter_call_state_ == 0);
@@ -918,6 +934,9 @@ public:
     return filter_manager_callbacks_.enableInternalRedirectsWithBody();
   }
 
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() { return tcloud_map_; }
+
+
 private:
   // Indicates which filter to start the iteration with.
   enum class FilterIterationStartState { AlwaysStartFromNext, CanStartFromCurrent };
@@ -1070,6 +1089,9 @@ private:
   };
 
   State state_;
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 } // namespace Http

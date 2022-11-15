@@ -168,6 +168,10 @@ Network::Address::InstanceConstSharedPtr ConnectionManagerUtility::mutateRequest
   // HUGE WARNING: The way we do this is not optimal but is how it worked "from the beginning" so
   //               we can't change it at this point. In the future we will likely need to add
   //               additional inference modes and make this mode legacy.
+  // 确定是内部请求还是外部请求。 符合以下几点均为内部请求。
+  // 1、 有远程表示 /XFF, 而且 XFF 的 header 中必须包含一个 单个 的地址 XFF(X-FORWARDED-FOR)
+  // 2、 单个地址必须是内部地址
+  // 3、 如果配置为不使用远程地址，但没有可用的 XFF 头，即使真正的远程是内部的，请求被认为是外部的
   const bool internal_request =
       single_xff_address && final_remote_address != nullptr &&
       config.internalAddressConfig().isInternalAddress(*final_remote_address);

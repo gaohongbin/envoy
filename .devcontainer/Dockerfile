@@ -1,5 +1,5 @@
-FROM gcr.io/envoy-ci/envoy-build:3d0491e2034287959a292806e3891fd0b7dd2703
-
+# FROM gcr.io/envoy-ci/envoy-build:3d0491e2034287959a292806e3891fd0b7dd2703
+FROM gcr.io/envoy-ci/envoy-build:81a93046060dbe5620d5b3aa92632090a9ee4da6
 ARG USERNAME=vscode
 ARG USER_UID=501
 ARG USER_GID=$USER_UID
@@ -8,6 +8,8 @@ ENV BUILD_DIR=/build
 ENV ENVOY_STDLIB=libstdc++
 
 ENV DEBIAN_FRONTEND=noninteractive
+# RUN apt-get -y install aptitude
+# RUN apt-get -y install dirmngr
 RUN apt-key adv --keyserver  keyserver.ubuntu.com --recv-keys 6AF7F09730B3F0A4
 RUN apt-get -y update \
   && apt-get -y install --no-install-recommends libpython2.7 net-tools psmisc vim 2>&1 \

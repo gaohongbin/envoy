@@ -35,6 +35,8 @@
 #include "common/stream_info/stream_info_impl.h"
 #include "common/upstream/load_balancer_impl.h"
 
+#include "envoy/tcloud/tcloud_map.h"
+
 namespace Envoy {
 namespace Router {
 
@@ -171,14 +173,16 @@ public:
                bool respect_expected_rq_timeout,
                const Protobuf::RepeatedPtrField<std::string>& strict_check_headers,
                TimeSource& time_source, Http::Context& http_context,
-               Router::Context& router_context)
+               Router::Context& router_context,
+               std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr)
       : scope_(scope), local_info_(local_info), cm_(cm), runtime_(runtime), random_(random),
         stats_(router_context.statNames(), scope, stat_prefix),
         emit_dynamic_stats_(emit_dynamic_stats), start_child_span_(start_child_span),
         suppress_envoy_headers_(suppress_envoy_headers),
         respect_expected_rq_timeout_(respect_expected_rq_timeout), http_context_(http_context),
         zone_name_(local_info_.zoneStatName()), shadow_writer_(std::move(shadow_writer)),
-        time_source_(time_source) {
+        time_source_(time_source),
+        tcloud_map_(tcloud_map) {
     if (!strict_check_headers.empty()) {
       strict_check_headers_ = std::make_unique<HeaderVector>();
       for (const auto& header : strict_check_headers) {
@@ -195,7 +199,8 @@ public:
                      PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, dynamic_stats, true),
                      config.start_child_span(), config.suppress_envoy_headers(),
                      config.respect_expected_rq_timeout(), config.strict_check_headers(),
-                     context.api().timeSource(), context.httpContext(), context.routerContext()) {
+                     context.api().timeSource(), context.httpContext(), context.routerContext(),
+                     context.getTcloudMap()) {
     for (const auto& upstream_log : config.upstream_log()) {
       upstream_logs_.push_back(AccessLog::AccessLogFactory::fromProto(upstream_log, context));
     }
@@ -205,6 +210,8 @@ public:
 
   ShadowWriter& shadowWriter() { return *shadow_writer_; }
   TimeSource& timeSource() { return time_source_; }
+
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() { return tcloud_map_; }
 
   Stats::Scope& scope_;
   const LocalInfo::LocalInfo& local_info_;
@@ -226,6 +233,9 @@ public:
 private:
   ShadowWriterPtr shadow_writer_;
   TimeSource& time_source_;
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 
 using FilterConfigSharedPtr = std::shared_ptr<FilterConfig>;

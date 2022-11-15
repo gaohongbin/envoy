@@ -606,7 +606,8 @@ ConnectionManagerImpl::ActiveStream::ActiveStream(ConnectionManagerImpl& connect
                       connection_manager_.config_.localReply(),
                       connection_manager_.codec_->protocol(), connection_manager_.timeSource(),
                       connection_manager_.read_callbacks_->connection().streamInfo().filterState(),
-                      StreamInfo::FilterState::LifeSpan::Connection),
+                      StreamInfo::FilterState::LifeSpan::Connection,
+                      connection_manager_.getTcloudMap()),
       request_response_timespan_(new Stats::HistogramCompletableTimespanImpl(
           connection_manager_.stats_.named_.downstream_rq_time_,
           connection_manager_.timeSource())) {
@@ -871,32 +872,30 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
 
   ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders tcloud_map_ 指针 {}", *this, connection_manager_.getTcloudMap());
   // tcloud 泳道
-  if (connection_manager_.getTcloudMap()) {
+  if (connection_manager_.getTcloudMap() && !request_headers_->getSw8Value().empty()) {
+    // 对 sw8 的值进行切割
+    std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(request_headers_->getSw8Value()), '-');
 
-    if (!request_headers_->getTcloudLaneValue().empty() && !request_headers_->getSw8Value().empty()) {
-      connection_manager_.getTcloudMap()->setKV(std::string(request_headers_->getSw8Value()), std::string(request_headers_->getTcloudLaneValue()));
+    if (!request_headers_->getTcloudLaneValue().empty() && sw8Spilts.size() >= 2) {
+      connection_manager_.getTcloudMap()->setKV(sw8Spilts[1], std::string(request_headers_->getTcloudLaneValue()));
       ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders setKV, key = {}, value = {} :\n{}",
-                       *this, request_headers_->getSw8Value(), request_headers_->getTcloudLaneValue(), *request_headers_);
+                       *this, sw8Spilts[1], request_headers_->getTcloudLaneValue(), *request_headers_);
       ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
 
-    } else if (!request_headers_->getSw8Value().empty()) {
-      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(std::string(request_headers_->getSw8Value()));
+    } else if (sw8Spilts.size() >= 2) {
+      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(sw8Spilts[1]);
       request_headers_->setTcloudLane(tcloudLane);
-      ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n{}",
-                       *this, request_headers_->getSw8Value(), tcloudLane, *request_headers_);
+      ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n",
+                       *this, sw8Spilts[1], tcloudLane);
       ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
-
     }
-//    else if (request_headers_->getSw8Value().empty()) {
-//      // 如果没有 sw8, 且 存在默认泳道 则插入默认泳道
-//      std::string tcloudLane = connection_manager_.getTcloudMap()->getDefaultValue();
-//      if (!tcloudLane.empty()) {
-//        request_headers_->setTcloudLane(tcloudLane);
-//      }
-//      ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
-//    }
+
+  } else if (connection_manager_.getTcloudMap()) {
+    std::string defaultTcloudLane = connection_manager_.getTcloudMap()->getDefaultValue();
+    request_headers_->setTcloudLane(defaultTcloudLane);
+    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is not null , 没有 sw8, 插入了默认泳道", *this);
   } else {
-    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is null ", *this );
+    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is null ", *this);
   }
 
 
