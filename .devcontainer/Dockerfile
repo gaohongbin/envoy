@@ -1,5 +1,5 @@
-# FROM gcr.io/envoy-ci/envoy-build:3d0491e2034287959a292806e3891fd0b7dd2703
-FROM gcr.io/envoy-ci/envoy-build:81a93046060dbe5620d5b3aa92632090a9ee4da6
+ FROM gcr.io/envoy-ci/envoy-build:3d0491e2034287959a292806e3891fd0b7dd2703
+
 ARG USERNAME=vscode
 ARG USER_UID=501
 ARG USER_GID=$USER_UID
@@ -9,8 +9,12 @@ ENV ENVOY_STDLIB=libstdc++
 
 ENV DEBIAN_FRONTEND=noninteractive
 # RUN apt-get -y install aptitude
-# RUN apt-get -y install dirmngr
+# RUN sudo apt-get -y install software-properties-common dirmngr
+RUN sed -i '52c #deb https://apt.kitware.com/ubuntu/ bionic main' /etc/apt/sources.list
+RUN apt-get -y update
+RUN apt-get -y install  dirmngr
 RUN apt-key adv --keyserver  keyserver.ubuntu.com --recv-keys 6AF7F09730B3F0A4
+RUN sed -i '52c deb https://apt.kitware.com/ubuntu/ bionic main' /etc/apt/sources.list
 RUN apt-get -y update \
   && apt-get -y install --no-install-recommends libpython2.7 net-tools psmisc vim 2>&1 \
   # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.
