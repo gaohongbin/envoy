@@ -490,11 +490,13 @@ void InstanceImpl::initialize(const Options& options,
   // worker_factory_.setTcloudMap(tcloud_map_);
 
   // Workers get created first so they register for thread local updates.
+  // 初始化ListenerManager
   listener_manager_ = std::make_unique<ListenerManagerImpl>(
       *this, listener_component_factory_, worker_factory_, bootstrap_.enable_dispatcher_stats());
 
   // The main thread is also registered for thread local updates so that code that does not care
   // whether it runs on the main thread or on workers can still use TLS.
+  // 将主线程的 dispatcher 注册到 thread_local_ 中。
   thread_local_.registerThread(*dispatcher_, true);
 
   // We can now initialize stats for threading.
@@ -547,6 +549,7 @@ void InstanceImpl::initialize(const Options& options,
   const bool use_tcp_for_dns_lookups = bootstrap_.use_tcp_for_dns_lookups();
   dns_resolver_ = dispatcher_->createDnsResolver({}, use_tcp_for_dns_lookups);
 
+  // 通过 ProdClusterManagerFactory 实例化 cluster_manager_factory
   cluster_manager_factory_ = std::make_unique<Upstream::ProdClusterManagerFactory>(
       *admin_, Runtime::LoaderSingleton::get(), stats_store_, thread_local_, dns_resolver_,
       *ssl_context_manager_, *dispatcher_, *local_info_, *secret_manager_,
@@ -557,10 +560,13 @@ void InstanceImpl::initialize(const Options& options,
   // thread local data per above. See MainImpl::initialize() for why ConfigImpl
   // is constructed as part of the InstanceImpl and then populated once
   // cluster_manager_factory_ is available.
+  // 使用 bootstrap 初始化 config, 这个 bootstrap 对应 /etc/istio/proxy/envoy-rev0.json, 该文件应该是 istio-init 生成的。
+  // 这是将 bootstrap 中的配置初始化到了 server 的 config 中
   config_.initialize(bootstrap_, *this, *cluster_manager_factory_);
 
   // Instruct the listener manager to create the LDS provider if needed. This must be done later
   // because various items do not yet exist when the listener manager is created.
+  // 根据 bootstrap 中的 lds 配置, 生成 LDS api
   if (bootstrap_.dynamic_resources().has_lds_config() ||
       !bootstrap_.dynamic_resources().lds_resources_locator().empty()) {
     std::unique_ptr<xds::core::v3::ResourceLocator> lds_resources_locator;
@@ -569,6 +575,8 @@ void InstanceImpl::initialize(const Options& options,
           std::make_unique<xds::core::v3::ResourceLocator>(Config::XdsResourceIdentifier::decodeUrl(
               bootstrap_.dynamic_resources().lds_resources_locator()));
     }
+    // 创建 LDS Api
+    // LDS 是 Envoy 用来自动获取 listener 的 API。 Envoy 通过 API 可以增加、修改或删除 listener。
     listener_manager_->createLdsApi(bootstrap_.dynamic_resources().lds_config(),
                                     lds_resources_locator.get());
   }
@@ -598,6 +606,7 @@ void InstanceImpl::initialize(const Options& options,
 
   // GuardDog (deadlock detection) object and thread setup before workers are
   // started and before our own run() loop runs.
+  // 检测机制
   main_thread_guard_dog_ = std::make_unique<Server::GuardDogImpl>(
       stats_store_, config_.mainThreadWatchdogConfig(), *api_, "main_thread");
   worker_guard_dog_ = std::make_unique<Server::GuardDogImpl>(
@@ -763,6 +772,7 @@ RunHelper::RunHelper(Instance& instance, const Options& options, Event::Dispatch
 void InstanceImpl::run() {
   // RunHelper exists primarily to facilitate testing of how we respond to early shutdown during
   // startup (see RunHelperTest in server_test.cc).
+  // RunHelper 的存在主要是为了方便测试我们如何响应启动期间的提前关闭
   const auto run_helper = RunHelper(*this, options_, *dispatcher_, clusterManager(),
                                     access_log_manager_, init_manager_, overloadManager(), [this] {
                                       notifyCallbacksForStage(Stage::PostInit);

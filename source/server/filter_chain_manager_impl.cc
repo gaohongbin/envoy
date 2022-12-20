@@ -166,6 +166,9 @@ void FilterChainManagerImpl::addFilterChains(
                                        "unimplemented fields",
                                        address_->asString(), filter_chain->name()));
     }
+    // 从这里可以理解 filterChains, 通过查看 istio 下发的配置信息，可以看出 filterChains 是个数组, 里面包含多个 filters 和 对应的 filterChainMatch
+    // 被监听器监听到的请求, 如果满足 filterChainMatch 就会执行相应的 filters
+    // 如果所有的 filterChainMatch 都没有匹配到, 则使用 defaultFilterChain 进行处理。
     const auto& matching_iter = filter_chains.find(filter_chain_match);
     if (matching_iter != filter_chains.end()) {
       throw EnvoyException(fmt::format("error adding listener '{}': filter chain '{}' has "

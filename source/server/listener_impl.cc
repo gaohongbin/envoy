@@ -317,13 +317,18 @@ ListenerImpl::ListenerImpl(const envoy::config::listener::v3::Listener& config,
   auto socket_type = Network::Utility::protobufAddressSocketType(config.address());
   buildListenSocketOptions(socket_type);
   buildUdpListenerFactory(socket_type, concurrency);
+  // 创建 listenerFilterFactory
   createListenerFilterFactories(socket_type);
   validateFilterChains(socket_type);
+  // 处理 istio 下发的 listener 中的 filterChains 配置。(也即所谓的 networkFilter）
   buildFilterChains();
   if (socket_type == Network::Socket::Type::Datagram) {
     return;
   }
   buildSocketOptions();
+  // 这里主要处理 listenerFilters, 在 istio 下发的配置里面 listenerFilters 和 filterChains(也就是所说的 networkFilters) 是分开的。
+  // 因为 listenerFilters 是 listener 维度的, 只要请求到了这个 listener, 都要被 listenerFilters 处理。
+  // 而 networkFilter 是协议维度的, 不同的协议被不同的 filterChainMatch 匹配, 然后被相应的 filterChain 处理。
   buildOriginalDstListenerFilter();
   buildProxyProtocolListenerFilter();
   buildTlsInspectorListenerFilter();

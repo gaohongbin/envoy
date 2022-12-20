@@ -220,6 +220,7 @@ private:
 /**
  * This is the actual full standalone server which stitches together various common components.
  */
+ // 这是实际的完整独立服务器，它将各种通用组件拼接在一起.  所以真正的实现逻辑在这里
 class InstanceImpl final : Logger::Loggable<Logger::Id::main>,
                            public Instance,
                            public ServerLifecycleNotifier {

@@ -124,6 +124,7 @@ public:
   /**
    * Type of sockets supported. See man 2 socket for more details
    */
+  // Stream 对应 TCP, Datagram 对应 UDP
   enum class Type { Stream, Datagram };
 
   /**

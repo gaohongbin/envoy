@@ -33,6 +33,10 @@ namespace Init {
  *
  * See target.h and watcher.h, as well as implementation in source/common/init for details.
  */
+// Manager 是一个初始化协调工具,
+// 先将所有需要初始化的 目标 全部添加到 Manager 中
+// 然后 Manager 去初始化所有的 目标. 
+// 初始化完成后 通知 watcher。
 struct Manager {
   virtual ~Manager() = default;
 

@@ -347,6 +347,7 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
   // TODO(junr03): currently only one ApiListener can be installed via bootstrap to avoid having to
   // build a collection of listeners, and to have to be able to warm and drain the listeners. In the
   // future allow multiple ApiListeners, and allow them to be created via LDS as well as bootstrap.
+  // 可以在 istio 代码里面搜 Listener 类, 不过这个 apiListener 我没看太明白, 先不管了, 先理解为一种特殊的东西吧。
   if (config.has_api_listener()) {
     if (!api_listener_ && !added_via_api) {
       // TODO(junr03): dispatch to different concrete constructors when there are other
@@ -366,6 +367,7 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
     }
   }
 
+  // 判断 Listener 是不是有 name, 如果没有生成一个唯一的 UUID
   std::string name;
   if (!config.name().empty()) {
     name = config.name();
@@ -395,7 +397,8 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
 bool ListenerManagerImpl::addOrUpdateListenerInternal(
     const envoy::config::listener::v3::Listener& config, const std::string& version_info,
     bool added_via_api, const std::string& name) {
-
+  
+  // 判断是不是当前已经停止相关方向上 listener
   if (listenersStopped(config)) {
     ENVOY_LOG(
         debug,
@@ -412,6 +415,7 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
 
   // The listener should be updated back to its original state and the warming listener should be
   // removed.
+  // 如果某个 listener 正在 active, 也正在 warm, 但是又不允许更新, 则直接擦除 warm 列表中对应的 listener
   if (existing_warming_listener != warming_listeners_.end() &&
       existing_active_listener != active_listeners_.end() &&
       (*existing_active_listener)->blockUpdate(hash)) {
@@ -423,6 +427,7 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
 
   // Do a quick blocked update check before going further. This check needs to be done against both
   // warming and active.
+  // 如果不允许被更新, 则不进行更新
   if ((existing_warming_listener != warming_listeners_.end() &&
        (*existing_warming_listener)->blockUpdate(hash)) ||
       (existing_active_listener != active_listeners_.end() &&
@@ -433,6 +438,7 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
 
   ListenerImplPtr new_listener = nullptr;
 
+  // 生成新的 listener
   // In place filter chain update depends on the active listener at worker.
   if (existing_active_listener != active_listeners_.end() &&
       (*existing_active_listener)->supportUpdateFilterChain(config, workers_started_)) {
@@ -448,6 +454,7 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
                                        workers_started_, hash, server_.options().concurrency());
   }
 
+  // 引用
   ListenerImpl& new_listener_ref = *new_listener;
 
   // We mandate that a listener with the same name must have the same configured address. This
@@ -475,6 +482,7 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
     throw EnvoyException(message);
   }
 
+  // 真正的更新逻辑
   bool added = false;
   if (existing_warming_listener != warming_listeners_.end()) {
     // In this case we can just replace inline.
@@ -996,11 +1004,7 @@ ListenerFilterChainFactoryBuilder::ListenerFilterChainFactoryBuilder(
     Server::Configuration::TransportSocketFactoryContextImpl& factory_context)
     : listener_(listener), validator_(listener.validation_visitor_),
       listener_component_factory_(listener.parent_.factory_), factory_context_(factory_context) {
-//  if (listener_.parent_.getTcloudMap()) {
-//    ENVOY_LOG(debug, "tcloud 1 envoy/source/server/listener_manager_impl.cc listener.parent_.getTcloudMap() tcloud_map is not null");
-//  } else {
-//    ENVOY_LOG(debug, "tcloud 1 envoy/source/server/listener_manager_impl.cc listener.parent_.getTcloudMap() tcloud_map is null");
-//  }
+
 }
 
 Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildFilterChain(

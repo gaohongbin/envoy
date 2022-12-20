@@ -95,8 +95,10 @@ void MainImpl::initialize(const envoy::config::bootstrap::v3::Bootstrap& bootstr
     ENVOY_LOG(debug, "envoy/source/server/configuration_impl.cc server.listenerManager().getTcloudMap() server tcloud_map_ is null");
   }
 
+  // 初始化链路追踪配置
   initializeTracers(bootstrap.tracing(), server);
 
+  // 从 envoy-rev0.json 初始化配置中启动
   const auto& secrets = bootstrap.static_resources().secrets();
   ENVOY_LOG(info, "loading {} static secret(s)", secrets.size());
   for (ssize_t i = 0; i < secrets.size(); i++) {
@@ -105,8 +107,10 @@ void MainImpl::initialize(const envoy::config::bootstrap::v3::Bootstrap& bootstr
   }
 
   ENVOY_LOG(info, "loading {} cluster(s)", bootstrap.static_resources().clusters().size());
+  // 这里会将 bootstrap 中的 cluster 全部加入到 cluster_manager
   cluster_manager_ = cluster_manager_factory.clusterManagerFromProto(bootstrap);
 
+  // 添加 bootstrap 中的 listeners
   const auto& listeners = bootstrap.static_resources().listeners();
   ENVOY_LOG(info, "loading {} listener(s)", listeners.size());
   for (ssize_t i = 0; i < listeners.size(); i++) {

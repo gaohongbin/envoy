@@ -131,6 +131,7 @@ public:
 /**
  * Abstract event dispatching loop.
  */
+// 对事件调度的一个抽象
 class Dispatcher : public DispatcherBase {
 public:
   /**

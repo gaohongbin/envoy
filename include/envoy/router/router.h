@@ -1342,6 +1342,8 @@ public:
    * @param options for creating the transport socket
    * @return may be null
    */
+  // 跳转以后, 这里的路径是 include, 针对这个 GenericConnPoolPtr 下面分别有两种实现, 分别实现了 http 和 tcp
+  // 所以可以理解 include 中的 .h 文件都是一些 interface, 真正的实现在 source/ 目录下面。
   virtual GenericConnPoolPtr
   createGenericConnPool(Upstream::ThreadLocalCluster& thread_local_cluster, bool is_connect,
                         const RouteEntry& route_entry,

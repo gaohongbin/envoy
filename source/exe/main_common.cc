@@ -44,6 +44,7 @@ Runtime::LoaderPtr ProdComponentFactory::createRuntime(Server::Instance& server,
   return Server::InstanceUtil::createRuntime(server, config);
 }
 
+// 最主要的逻辑就是初始化 InstanceImpl 作为 server_
 MainCommonBase::MainCommonBase(const Server::Options& options, Event::TimeSystem& time_system,
                                ListenerHooks& listener_hooks,
                                Server::ComponentFactory& component_factory,
@@ -204,6 +205,7 @@ MainCommon::MainCommon(const std::vector<std::string>& args)
             std::make_unique<PlatformImpl>(), std::make_unique<Random::RandomGeneratorImpl>(),
             nullptr) {}
 
+// MainCommon 的初始化逻辑, 主要逻辑是空的, 但是初始化两个变量, options_ 和 base_
 MainCommon::MainCommon(int argc, const char* const* argv)
     : options_(argc, argv, &MainCommon::hotRestartVersion, spdlog::level::info),
       base_(options_, real_time_system_, default_listener_hooks_, prod_component_factory_,
@@ -233,6 +235,7 @@ int MainCommon::main(int argc, char** argv, PostServerHook hook) {
   // as needed. Whatever code in the initialization path that fails is expected to log an error
   // message so the user can diagnose.
   TRY_ASSERT_MAIN_THREAD {
+    // 可以看出 main 方法的本质就是初始化了一个 MainCommon, 然后最后执行 main_common 的 run() 方法。
     main_common = std::make_unique<Envoy::MainCommon>(argc, argv);
     Envoy::Server::Instance* server = main_common->server();
     if (server != nullptr && hook != nullptr) {
