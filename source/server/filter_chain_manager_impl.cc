@@ -177,6 +177,9 @@ void FilterChainManagerImpl::addFilterChains(
                                        matching_iter->second));
     }
     filter_chains.insert({filter_chain_match, filter_chain->name()});
+    // 我看看这些 filter_chain 的 name 到底是什么
+    // 通过打日志可以看出, 只有极个别 filter_chain 有name, 其他均没有。
+    ENVOY_LOG(debug, "tcloud filter_chains insert filter_chain.name = {}", filter_chain->name());
 
     // Validate IP addresses.
     std::vector<std::string> destination_ips;

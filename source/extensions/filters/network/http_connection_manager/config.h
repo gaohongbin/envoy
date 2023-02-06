@@ -41,6 +41,7 @@ namespace HttpConnectionManager {
 /**
  * Config registration for the HTTP connection manager filter. @see NamedNetworkFilterConfigFactory.
  */
+ // HttpConnectionManager 的配置注册。
 class HttpConnectionManagerFilterConfigFactory
     : Logger::Loggable<Logger::Id::config>,
       public Common::FactoryBase<
@@ -83,6 +84,7 @@ private:
  * Maps proto config to runtime config for an HTTP connection manager network filter.
  */
  // HttpConnectionManagerConfig 是 ConnectionManagerConfig 的一个实现
+ // HttpConnectionManagerFilter 的配置, 通过 proto 文件生成
 class HttpConnectionManagerConfig : Logger::Loggable<Logger::Id::config>,
                                     public Http::FilterChainFactory,
                                     public Http::ConnectionManagerConfig {

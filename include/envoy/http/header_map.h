@@ -413,6 +413,7 @@ private:
 /**
  * Wraps a set of HTTP headers.
  */
+// 对 HTTP 协议 header 的封装。
 class HeaderMap {
 public:
   virtual ~HeaderMap() = default;

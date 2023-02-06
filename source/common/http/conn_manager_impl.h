@@ -153,6 +153,8 @@ private:
    * Wraps a single active stream on the connection. These are either full request/response pairs
    * or pushes.
    */
+  // 封装连接上的单个活动流。这些是完整的请求/响应对或推送。
+  // ActiveStream 既封装了对 request 的 decode操作, 也封装了对 rsp 的 encode 操作
   struct ActiveStream final : LinkedObject<ActiveStream>,
                               public Event::DeferredDeletable,
                               public StreamCallbacks,

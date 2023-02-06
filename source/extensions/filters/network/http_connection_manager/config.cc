@@ -197,6 +197,9 @@ std::shared_ptr<HttpConnectionManagerConfig> Utility::createConfig(
       scoped_routes_config_provider_manager, http_tracer_manager, filter_config_provider_manager);
 }
 
+// HttpConnectionManager 的构造函数 createFilterFactoryFromProtoTyped, 通过 proto 文件进行创建。
+// 可以看到最后, 该方法返回了一个 void 方法, 该方法内部只调用了 filter_manager.addReadFilter
+// 我们现在再去看 filter_manager.addReadFilter 的方法实现, 里面有调用 initializeReadFilterCallbacks
 Network::FilterFactoryCb
 HttpConnectionManagerFilterConfigFactory::createFilterFactoryFromProtoTyped(
     const envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&
@@ -235,6 +238,7 @@ HttpConnectionManagerFilterConfigFactory::createFilterFactoryFromProtoTyped(
 /**
  * Static registration for the HTTP connection manager filter.
  */
+// 这块的宏相关的代码没看太懂, 但是可以理解, 该类加载完成以后, 以静态的方式进行了注册, 所以 regiterFactory 上注册了所有的 filter
 REGISTER_FACTORY(HttpConnectionManagerFilterConfigFactory,
                  Server::Configuration::NamedNetworkFilterConfigFactory){
     "envoy.http_connection_manager"};
@@ -662,6 +666,8 @@ HttpConnectionManagerConfig::createCodec(Network::Connection& connection,
   NOT_REACHED_GCOVR_EXCL_LINE;
 }
 
+// 结合 router 的 config.cc 中定义的 createFilterFactoryFromProtoTyped 的定义,
+// 这里  config.value()(callbacks); 会将新创建的 http_filter 添加到 callbacks 中。
 void HttpConnectionManagerConfig::createFilterChainForFactories(
     Http::FilterChainFactoryCallbacks& callbacks, const FilterFactoriesList& filter_factories) {
   bool added_missing_config_filter = false;
@@ -744,6 +750,8 @@ const envoy::config::trace::v3::Tracing_Http* HttpConnectionManagerConfig::getPe
   return nullptr;
 }
 
+// 这里是真正的生成 HttpConnectionManager 的地方, initializeReadFilterCallbacks 方法也是这里调用的。
+// 所以 read_callbacks 也是这里传进去的。
 std::function<Http::ApiListenerPtr()>
 HttpConnectionManagerFactory::createHttpConnectionManagerFactoryFromProto(
     const envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&

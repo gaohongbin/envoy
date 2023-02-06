@@ -715,6 +715,7 @@ StatusOr<ParserStatus> ConnectionImpl::onHeadersComplete() {
       handling_upgrade_ = true;
     }
   }
+  // methodName() 方法返回的是诸如 GET, POST 等的请求方式
   if (parser_->methodName() == header_values.MethodValues.Connect) {
     if (request_or_response_headers.ContentLength()) {
       if (request_or_response_headers.getContentLengthValue() == "0") {
@@ -743,6 +744,7 @@ StatusOr<ParserStatus> ConnectionImpl::onHeadersComplete() {
   // Reject message with Http::Code::BadRequest if both Transfer-Encoding and Content-Length
   // headers are present or if allowed by http1 codec settings and 'Transfer-Encoding'
   // is chunked - remove Content-Length and serve request.
+  // TODO 可以了解一下 http 协议之 chunk, 这里我们先跳过
   if (parser_->hasTransferEncoding() != 0 && request_or_response_headers.ContentLength()) {
     if (parser_->isChunked() && codec_settings_.allow_chunked_length_) {
       request_or_response_headers.removeContentLength();
@@ -1048,6 +1050,7 @@ Envoy::StatusOr<ParserStatus> ServerConnectionImpl::onHeadersCompleteBase() {
 
     // Inform the response encoder about any HEAD method, so it can set content
     // length and transfer encoding headers correctly.
+    // 后面尝试在这里修改 response 的 header, 将 traceId 插入 response header 进行返回。
     const Http::HeaderValues& header_values = Http::Headers::get();
     active_request.response_encoder_.setIsResponseToHeadRequest(parser_->methodName() ==
                                                                 header_values.MethodValues.Head);
@@ -1099,6 +1102,7 @@ Status ServerConnectionImpl::onMessageBeginBase() {
     if (resetStreamCalled()) {
       return codecClientError("cannot create new streams after calling reset");
     }
+    // 这里 callbacks_ 的本质是 ConnectionManagerImpl (见 conn_manager_impl.cc）
     active_request.request_decoder_ = &callbacks_.newStream(active_request.response_encoder_);
 
     // Check for pipelined request flood as we prepare to accept a new request.

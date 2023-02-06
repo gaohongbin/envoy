@@ -82,6 +82,8 @@ public:
 /**
  * Basic abstraction for span.
  */
+
+// Span 是链路追踪中的概念, traceId 是整条链路唯一, spanId 则是每个服务生成一个, 通过 parent-spanId 和 spanId 拼出 traceId 
 class Span {
 public:
   virtual ~Span() = default;

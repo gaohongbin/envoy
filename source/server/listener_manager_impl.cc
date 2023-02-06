@@ -87,6 +87,7 @@ bool ListenSocketCreationParams::operator!=(const ListenSocketCreationParams& rh
   return !operator==(rhs);
 }
 
+// 根据 listener 的 filterChain 中配置的 filters, 分别生成其工厂类 FilterFactory
 std::vector<Network::FilterFactoryCb> ProdListenerComponentFactory::createNetworkFilterFactoryList_(
     const Protobuf::RepeatedPtrField<envoy::config::listener::v3::Filter>& filters,
     Server::Configuration::FilterChainFactoryContext& filter_chain_factory_context) {
@@ -110,6 +111,7 @@ std::vector<Network::FilterFactoryCb> ProdListenerComponentFactory::createNetwor
                             proto_config.hidden_envoy_deprecated_config())));
 
     // Now see if there is a factory that will accept the config.
+    // 通过 proto 文件从 Registry::FactoryRegistry 中取出不同类型的 NamedNetworkFilterConfigFactory
     auto& factory =
         Config::Utility::getAndCheckFactory<Configuration::NamedNetworkFilterConfigFactory>(
             proto_config);
@@ -348,6 +350,7 @@ bool ListenerManagerImpl::addOrUpdateListener(const envoy::config::listener::v3:
   // build a collection of listeners, and to have to be able to warm and drain the listeners. In the
   // future allow multiple ApiListeners, and allow them to be created via LDS as well as bootstrap.
   // 可以在 istio 代码里面搜 Listener 类, 不过这个 apiListener 我没看太明白, 先不管了, 先理解为一种特殊的东西吧。
+  // 从 envoy 日志来看, 下面这段 if 没有执行。因为没有配置 apiListener.
   if (config.has_api_listener()) {
     if (!api_listener_ && !added_via_api) {
       // TODO(junr03): dispatch to different concrete constructors when there are other
@@ -408,6 +411,13 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
   }
 
   const uint64_t hash = MessageUtil::hash(config);
+  // 下面是 envoy 的一段日志, 而整个 envoy 中调用 addOrUpdateListenerInternal 的地方只有一处。
+  // 从代码可以理解, 前两个 listener 应该对应 /etc/istio/proxy/envoy-rev0.json 下的 15021 和 15090 两个端口,
+  // 而后面其他的端口, 应该是 istio 下发给 envoy 的 config 生成的。
+//  2023-01-31T07:27:42.413628Z	debug	envoy config	begin add/update listener: name=d93db229-0369-43d0-922f-8604a59bd538 hash=2200412303323231031
+//  2023-01-31T07:27:42.419035Z	debug	envoy config	begin add/update listener: name=4fce188a-7039-4919-996b-3f630095ae7d hash=9872086206848846795
+//  2023-01-31T07:27:47.790338Z	debug	envoy config	begin add/update listener: name=10.0.68.89_443 hash=6143915668597465087
+//  2023-01-31T07:27:47.793751Z	debug	envoy config	begin add/update listener: name=10.0.69.78_5125 hash=2011233370677522600
   ENVOY_LOG(debug, "begin add/update listener: name={} hash={}", name, hash);
 
   auto existing_active_listener = getListenerByName(active_listeners_, name);
@@ -905,6 +915,7 @@ bool ListenerManagerImpl::removeListenerInternal(const std::string& name,
   return true;
 }
 
+// ListenerManagerImpl 的启动逻辑
 void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()> callback) {
   ENVOY_LOG(info, "all dependencies initialized. starting workers");
   ASSERT(!workers_started_);
@@ -916,6 +927,7 @@ void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()
   // case in main_common_test fails with ASAN error if we use "Cleanup" here.
   const auto listeners_pending_init =
       std::make_shared<std::atomic<uint64_t>>(workers_.size() * active_listeners_.size());
+  // 这里两个 for 循环, 给所有的 work 绑定了所有的 active_listeners_
   for (const auto& worker : workers_) {
     ENVOY_LOG(debug, "starting worker {}", i);
     ASSERT(warming_listeners_.empty());
@@ -1014,6 +1026,10 @@ Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildF
                                   context_creator.createFilterChainFactoryContext(&filter_chain));
 }
 
+// 根据 listener 下的 filterChain 进行构建.
+// 针对 http 请求而言, 一般一个 listener 下面有两个 filterChain, 一个是 filter_chains 另一个是 default_filter_chain。
+// filter_chains 对应的 filters 叫做 envoy.filters.network.http_connection_manager, 在这个 http_connection_manager 下面再包含 http_filters。
+// default_filter_chain 对应的 filters 叫做 envoy.filters.network.tcp_proxy
 Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildFilterChainInternal(
     const envoy::config::listener::v3::FilterChain& filter_chain,
     Configuration::FilterChainFactoryContextPtr&& filter_chain_factory_context) const {
@@ -1040,6 +1056,7 @@ Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildF
   auto& config_factory = Config::Utility::getAndCheckFactory<
       Server::Configuration::DownstreamTransportSocketConfigFactory>(transport_socket);
   // The only connection oriented UDP transport protocol right now is QUIC.
+  // 目前 QUIC 是唯一的使用 UDP 的协议
   const bool is_quic =
       listener_.udpListenerConfig().has_value() &&
       !listener_.udpListenerConfig()->listenerFactory().isTransportConnectionless();

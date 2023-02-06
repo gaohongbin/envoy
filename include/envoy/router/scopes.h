@@ -82,6 +82,8 @@ private:
 /**
  * The scoped routing configuration.
  */
+// 这个 ScopedConfig 返回的是 ConfigConstSharedPtr
+// ConfigConstSharedPtr 的 route 方法返回的是具体 routeEntry
 class ScopedConfig : public Envoy::Config::ConfigProvider::Config {
 public:
   ~ScopedConfig() override = default;

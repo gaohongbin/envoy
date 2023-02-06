@@ -335,6 +335,7 @@ void InstanceImpl::initialize(const Options& options,
   }
 
   // Handle configuration that needs to take place prior to the main configuration load.
+  // 处理需要在主配置加载之前进行的配置。
   InstanceUtil::loadBootstrapConfig(bootstrap_, options,
                                     messageValidationContext().staticValidationVisitor(), *api_);
   bootstrap_config_update_time_ = time_source_.systemTime();
@@ -348,6 +349,7 @@ void InstanceImpl::initialize(const Options& options,
   // TODO(mattklein123): Custom O(1) headers can be registered at this point for creating/finalizing
   // any header maps.
   ENVOY_LOG(info, "HTTP header map info:");
+  // 这是把所有的 header 都进行了注册 ?
   for (const auto& info : Http::HeaderMapImplUtility::getAllHeaderMapImplInfo()) {
     ENVOY_LOG(info, "  {}: {} bytes: {}", info.name_, info.size_,
               absl::StrJoin(info.registered_headers_, ","));
@@ -406,6 +408,7 @@ void InstanceImpl::initialize(const Options& options,
   bootstrap_.mutable_node()->set_hidden_envoy_deprecated_build_version(VersionInfo::version());
   bootstrap_.mutable_node()->set_user_agent_name("envoy");
   *bootstrap_.mutable_node()->mutable_user_agent_build_version() = VersionInfo::buildVersion();
+  // registerFactory 里面的代码再看看, 这块的注册没太理解
   for (const auto& ext : Envoy::Registry::FactoryCategoryRegistry::registeredFactories()) {
     for (const auto& name : ext.second->allRegisteredNames()) {
       auto* extension = bootstrap_.mutable_node()->add_extensions();
@@ -427,10 +430,12 @@ void InstanceImpl::initialize(const Options& options,
 
   // Learn original_start_time_ if our parent is still around to inform us of it.
   restarter_.sendParentAdminShutdownRequest(original_start_time_);
+  // 这个 admin 是 envoy 提供的一些 http 接口, 例如我们在 envoy 中访问 localhost:15000/config_dump 这种 http 请求
+  // 就是 admin 进行处理的。
   admin_ = std::make_unique<AdminImpl>(initial_config.admin().profilePath(), *this);
 
   loadServerFlags(initial_config.flagsPath());
-
+  // secret_manager_ 是一个全局的变量
   secret_manager_ = std::make_unique<Secret::SecretManagerImpl>(admin_->getConfigTracker());
 
   // Initialize the overload manager early so other modules can register for actions.
@@ -490,7 +495,8 @@ void InstanceImpl::initialize(const Options& options,
   // worker_factory_.setTcloudMap(tcloud_map_);
 
   // Workers get created first so they register for thread local updates.
-  // 初始化ListenerManager
+  // 初始化ListenerManager, 在这里管理所有的 Listener
+  // ListenerManager 会根据 envoy 的启动配置, 创建 workers
   listener_manager_ = std::make_unique<ListenerManagerImpl>(
       *this, listener_component_factory_, worker_factory_, bootstrap_.enable_dispatcher_stats());
 

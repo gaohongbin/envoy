@@ -255,6 +255,8 @@ public:
  * to. Typically the function will install a single filter, but it's technically possibly to
  * install more than one if desired.
  */
+// 此函数为新连接封装了网络过滤器链的创建过程。
+// 过滤器工厂在配置初始化时创建 lambda 表达式，然后在运行时使用它们。
 using FilterFactoryCb = std::function<void(FilterManager& filter_manager)>;
 
 /**

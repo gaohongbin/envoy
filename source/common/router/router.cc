@@ -374,14 +374,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
                        *callbacks_, sw8Spilts[1], headers.getTcloudLaneValue());
       ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
 
-    } else if (sw8Spilts.size() >= 2) {
-      std::string tcloudLane = config_.getTcloudMap()->getValue(sw8Spilts[1]);
-      headers.setTcloudLane(tcloudLane);
-      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders getValue, key = {}, value = {} :\n",
-                       *callbacks_, sw8Spilts[1], tcloudLane);
-      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
     }
-
   } else if (config_.getTcloudMap()) {
     std::string defaultTcloudLane = config_.getTcloudMap()->getDefaultValue();
     headers.setTcloudLane(defaultTcloudLane);
@@ -389,6 +382,16 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   } else {
     ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is null ", *callbacks_);
   }
+  //  else if (sw8Spilts.size() >= 2) {
+  //     std::string tcloudLane = config_.getTcloudMap()->getValue(sw8Spilts[1]);
+  //     headers.setTcloudLane(tcloudLane);
+  //     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders getValue, key = {}, value = {} :\n",
+  //                      *callbacks_, sw8Spilts[1], tcloudLane);
+  //     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+  //   }
+
+  // } 
+  
 
   // Extract debug configuration from filter state. This is used further along to determine whether
   // we should append cluster and host headers to the response, and whether to forward the request

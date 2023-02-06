@@ -96,6 +96,7 @@ struct ServerStats {
 /**
  * Interface for creating service components during boot.
  */
+// 启动期间创建服务组件的接口。
 class ComponentFactory {
 public:
   virtual ~ComponentFactory() = default;

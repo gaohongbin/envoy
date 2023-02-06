@@ -635,6 +635,7 @@ private:
  * FilterManager manages decoding a request through a series of decoding filter and the encoding
  * of the resulting response.
  */
+// FilterManager 通过一系列解码过滤器和编码来管理解码请求结果的响应。
 class FilterManager : public ScopeTrackedObject,
                       FilterChainFactoryCallbacks,
                       Logger::Loggable<Logger::Id::http> {
@@ -908,6 +909,7 @@ public:
    * Instructs the FilterManager to not create a filter chain. This makes it possible to issue
    * a local reply without the overhead of creating and traversing the filters.
    */
+   // 指示 FilterManager 不创建过滤器链。这使得发出本地回复成为可能，而无需创建和遍历过滤器的开销。
   void skipFilterChainCreation() {
     ASSERT(!state_.created_filter_chain_);
     state_.created_filter_chain_ = true;

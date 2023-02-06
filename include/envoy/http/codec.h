@@ -46,6 +46,7 @@ class Stream;
 /**
  * Error codes used to convey the reason for a GOAWAY.
  */
+ // 用于传达 GOAWAY 原因的错误代码。
 enum class GoAwayErrorCode {
   NoError,
   Other,
@@ -54,6 +55,7 @@ enum class GoAwayErrorCode {
 /**
  * Stream encoder options specific to HTTP/1.
  */
+ // 特定于 HTTP/1 的流编码器选项。
 class Http1StreamEncoderOptions {
 public:
   virtual ~Http1StreamEncoderOptions() = default;
@@ -74,6 +76,7 @@ using Http1StreamEncoderOptionsOptRef =
  * TODO(mattklein123): Consider removing the StreamEncoder interface entirely and just duplicating
  * the methods in both the request/response path for simplicity.
  */
+ // StreamEncoder 主要用于编码 Http 数据流。该接口包含 req 和 rsp 的共有方法。
 class StreamEncoder {
 public:
   virtual ~StreamEncoder() = default;
@@ -83,6 +86,7 @@ public:
    * @param data supplies the data to encode. The data may be moved by the encoder.
    * @param end_stream supplies whether this is the last data frame.
    */
+   // 编码数据帧
   virtual void encodeData(Buffer::Instance& data, bool end_stream) PURE;
 
   /**
@@ -94,6 +98,7 @@ public:
    * Encode metadata.
    * @param metadata_map_vector is the vector of metadata maps to encode.
    */
+    // 编码元数据
   virtual void encodeMetadata(const MetadataMapVector& metadata_map_vector) PURE;
 
   /**
@@ -107,6 +112,8 @@ public:
  * Stream encoder used for sending a request (client to server). Virtual inheritance is required
  * due to a parallel implementation split between the shared base class and the derived class.
  */
+ // RequestEncoder 用于对 req 进行编码.
+ // TODO 这里的虚拟继承作为 C++ 的一种特性, 待学习。
 class RequestEncoder : public virtual StreamEncoder {
 public:
   /**
@@ -116,12 +123,15 @@ public:
    * @return Status indicating whether encoding succeeded. Encoding will fail if request
    * headers are missing required HTTP headers (method, path for non-CONNECT, host for CONNECT).
    */
+   // 这里就是针对 req 的 header 进行编码了, 会验证 http req header 中的必须参数。
+   // 但这里的 end_stream 表示的含义: 是否该请求只包含 header
   virtual Status encodeHeaders(const RequestHeaderMap& headers, bool end_stream) PURE;
 
   /**
    * Encode trailers. This implicitly ends the stream.
    * @param trailers supplies the trailers to encode.
    */
+   // 编码 trailer, 并且会隐式的关闭 stream。
   virtual void encodeTrailers(const RequestTrailerMap& trailers) PURE;
 
   /**
@@ -148,6 +158,7 @@ public:
    * @param headers supplies the header map to encode.
    * @param end_stream supplies whether this is a header only response.
    */
+   // 编码 rsp header，可选地指示流的结尾。响应标头必须具有有效的 :status 集。
   virtual void encodeHeaders(const ResponseHeaderMap& headers, bool end_stream) PURE;
 
   /**
@@ -160,6 +171,7 @@ public:
    * Indicates whether invalid HTTP messaging should be handled with a stream error or a connection
    * error.
    */
+   // 指示是否应使用流错误或连接错误来处理无效的 HTTP 消息传递。
   virtual bool streamErrorOnInvalidHttpMessage() const PURE;
 };
 
@@ -169,6 +181,8 @@ public:
  * TODO(mattklein123): Consider removing the StreamDecoder interface entirely and just duplicating
  * the methods in both the request/response path for simplicity.
  */
+ // 解码 http 数据流。 这个是接收到 http 数据后的回调。
+ // 同样的, StreamDecoder 中包含了对于 req 和 rsp 的通用方法。
 class StreamDecoder {
 public:
   virtual ~StreamDecoder() = default;
@@ -191,6 +205,7 @@ public:
  * Stream decoder used for receiving a request (client to server). Virtual inheritance is required
  * due to a parallel implementation split between the shared base class and the derived class.
  */
+ // RequestDecoder 专门用来解码 req
 class RequestDecoder : public virtual StreamDecoder {
 public:
   /**
@@ -230,6 +245,7 @@ public:
  * Stream decoder used for receiving a response (server to client). Virtual inheritance is required
  * due to a parallel implementation split between the shared base class and the derived class.
  */
+ // ResponseDecoder 专门用来解码 rsp
 class ResponseDecoder : public virtual StreamDecoder {
 public:
   /**
@@ -259,6 +275,7 @@ public:
    *
    * This function is called on Envoy fatal errors so should avoid memory allocation.
    */
+   // 将 ResponseDecoder 转储到指定的ostream。
   virtual void dumpState(std::ostream& os, int indent_level = 0) const PURE;
 };
 
@@ -289,6 +306,7 @@ enum class StreamResetReason {
 /**
  * Callbacks that fire against a stream.
  */
+ // stream 的 callback 类。
 class StreamCallbacks {
 public:
   virtual ~StreamCallbacks() = default;
@@ -298,24 +316,28 @@ public:
    * @param reason supplies the reset reason.
    * @param transport_failure_reason supplies underlying transport failure reason.
    */
+   // stream 被重置时调用
   virtual void onResetStream(StreamResetReason reason,
                              absl::string_view transport_failure_reason) PURE;
 
   /**
    * Fires when a stream, or the connection the stream is sending to, goes over its high watermark.
    */
+   // 当写 buffer 到达高水位以后, 触发该方法
   virtual void onAboveWriteBufferHighWatermark() PURE;
 
   /**
    * Fires when a stream, or the connection the stream is sending to, goes from over its high
    * watermark to under its low watermark.
    */
+   // 当写 buffer 低于低水位值时, 触发该方法
   virtual void onBelowWriteBufferLowWatermark() PURE;
 };
 
 /**
  * An HTTP stream (request, response, and push).
  */
+ // stream 是对一次 http 请求的封装, 包括了 req 和 rsp
 class Stream {
 public:
   virtual ~Stream() = default;
@@ -336,6 +358,7 @@ public:
    * Reset the stream. No events will fire beyond this point.
    * @param reason supplies the reset reason.
    */
+  // 重置 stream。 重置之后, 将会删除 stream 中的 event.
   virtual void resetStream(StreamResetReason reason) PURE;
 
   /**
@@ -350,6 +373,7 @@ public:
    * readDisable(false);  // Notes the stream is blocked by one source
    * readDisable(false);  // Marks the stream as unblocked, so resumes reading.
    */
+   // 请注意，此函数引用计数调用。
   virtual void readDisable(bool disable) PURE;
 
   /**
@@ -385,6 +409,7 @@ public:
 /**
  * A class for sharing what HTTP/2 SETTINGS were received from the peer.
  */
+ // 暂时还不太知道这个是做什么的
 class ReceivedSettings {
 public:
   virtual ~ReceivedSettings() = default;
@@ -398,6 +423,8 @@ public:
 /**
  * Connection level callbacks.
  */
+ // 前面出现过 streamCallback, 现在是 ConnectionCallback
+ // 两个不同的维度
 class ConnectionCallbacks {
 public:
   virtual ~ConnectionCallbacks() = default;
@@ -405,6 +432,7 @@ public:
   /**
    * Fires when the remote indicates "go away." No new streams should be created.
    */
+   // 当远端指示"go away" 时执行, 并且不应该再创建新的 stream, 也就是对端要断开连接了。
   virtual void onGoAway(GoAwayErrorCode error_code) PURE;
 
   /**
@@ -412,6 +440,7 @@ public:
    * This may occur multiple times across the lifetime of the connection.
    * @param ReceivedSettings the settings received from the peer.
    */
+   // 当收到对端的设置数据时触发。
   virtual void onSettings(ReceivedSettings& settings) { UNREFERENCED_PARAMETER(settings); }
 };
 
@@ -440,6 +469,7 @@ struct Http1Settings {
   enum class HeaderKeyFormat {
     // By default no formatting is performed, presenting all headers in lowercase (as Envoy
     // internals normalize everything to lowercase.)
+    // 默认情况下，不执行任何格式化，以小写形式显示所有标头（因为Envoy内部将所有内容规范化为小写）
     Default,
     // Performs proper casing of header keys: the first and all alpha characters following a
     // non-alphanumeric character is capitalized.
@@ -467,6 +497,7 @@ struct Http1Settings {
 /**
  * A connection (client or server) that owns multiple streams.
  */
+ // Connection 可以管理多个 stream, stream 是一次交流的最小单位，可以简单的理解为 一次 req(请求) 和 rsp(回复)
 class Connection {
 public:
   virtual ~Connection() = default;
@@ -477,6 +508,7 @@ public:
    * @return Status indicating the status of the codec. Holds any errors encountered while
    * processing the incoming data.
    */
+   // 应该是将数据分发给 stream 处理。
   virtual Status dispatch(Buffer::Instance& data) PURE;
 
   /**
@@ -494,12 +526,14 @@ public:
    * Indicate a "shutdown notice" to the remote. This is a hint that the remote should not send
    * any new streams, but if streams do arrive that will not be reset.
    */
+   // stream 也会被重复利用
   virtual void shutdownNotice() PURE;
 
   /**
    * @return bool whether the codec has data that it wants to write but cannot due to protocol
    *              reasons (e.g, needing window updates).
    */
+   // 编解码器是否具有由于协议原因（例如，需要窗口更新）而无法写入的数据。
   virtual bool wantsToWrite() PURE;
 
   /**
@@ -542,6 +576,7 @@ public:
 /**
  * Callbacks for server connections.
  */
+ // ServerConnection 用于生成 rsp
 class ServerConnectionCallbacks : public virtual ConnectionCallbacks {
 public:
   /**
@@ -553,6 +588,7 @@ public:
    * @return RequestDecoder& supplies the decoder callbacks to fire into for stream decoding
    *   events.
    */
+   // 这里明确说明了 req 和 rsp 使用同一个 stream
   virtual RequestDecoder& newStream(ResponseEncoder& response_encoder,
                                     bool is_internally_created = false) PURE;
 };
@@ -566,6 +602,7 @@ using ServerConnectionPtr = std::unique_ptr<ServerConnection>;
 /**
  * A client side HTTP connection.
  */
+ // ClientConnection 用于发起 req
 class ClientConnection : public virtual Connection {
 public:
   /**

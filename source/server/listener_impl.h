@@ -214,6 +214,8 @@ private:
 /**
  * Maps proto config to runtime config for a listener with a network filter chain.
  */
+// listener 的实现类，每个 listener 中包含一个 filter_chain_manager , 管理着这个 listener 所对应的  filterChain。
+// 其实我觉得实现最奇妙的是 filterChainConfigFactory, 每个类都会将自己注册到 registerFactory 上面, 然后 lister 实例化时再从里面获取相应的工厂类。
 class ListenerImpl final : public Network::ListenerConfig,
                            public Network::FilterChainFactory,
                            Logger::Loggable<Logger::Id::config> {
@@ -413,6 +415,8 @@ private:
   const std::chrono::milliseconds listener_filters_timeout_;
   const bool continue_on_listener_filters_timeout_;
   std::unique_ptr<UdpListenerConfigImpl> udp_listener_config_;
+  // ConnectionBalancer 如果有多个 worker 也即有多个 ConnectionHandler 时， 当有新的请求到来时需要将请求分发给不同的 ConnectionHandler
+  // 该逻辑由 ConnectionBalancer 实现。
   Network::ConnectionBalancerSharedPtr connection_balancer_;
   std::shared_ptr<PerListenerFactoryContextImpl> listener_factory_context_;
   FilterChainManagerImpl filter_chain_manager_;

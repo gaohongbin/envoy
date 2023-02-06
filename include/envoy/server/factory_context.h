@@ -171,6 +171,7 @@ public:
  * TODO(mattklein123): When we lock down visibility of the rest of the code, filters should only
  * access the rest of the server via interfaces exposed here.
  */
+ // 将 server 中的一些资源通过 FactoryContext 透传给 network 和 http filters。
 class FactoryContext : public virtual CommonFactoryContext {
 public:
   ~FactoryContext() override = default;

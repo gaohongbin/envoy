@@ -27,6 +27,7 @@ class ActiveTcpListener;
  * Server side connection handler. This is used both by workers as well as the
  * main thread for non-threaded listeners.
  */
+// 服务器端连接处理程序。这既被工作线程使用，也被主线程使用。
 class ConnectionHandlerImpl : public Network::TcpConnectionHandler,
                               public Network::UdpConnectionHandler,
                               NonCopyable,

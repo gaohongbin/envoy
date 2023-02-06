@@ -12,6 +12,7 @@ namespace Server {
  * Handles connection draining. This concept is used globally during hot restart / server draining
  * as well as on individual listeners when they are being dynamically removed.
  */
+// 处理连接删除。这个概念在热重启服务器期间全局使用，以及在动态删除单个侦听器时使用。
 class DrainManager : public Network::DrainDecision {
 public:
   /**

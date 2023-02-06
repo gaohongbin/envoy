@@ -83,6 +83,7 @@ public:
    * @param context supplies the factory creation context.
    * @return std::vector<Network::FilterFactoryCb> the list of filter factories.
    */
+  // 该方法返回了一个 filter factory list, 通过返回的 func,可以直接生成 networkfilter
   virtual std::vector<Network::FilterFactoryCb> createNetworkFilterFactoryList(
       const Protobuf::RepeatedPtrField<envoy::config::listener::v3::Filter>& filters,
       Server::Configuration::FilterChainFactoryContext& filter_chain_factory_context) PURE;
