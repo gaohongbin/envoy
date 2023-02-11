@@ -36,6 +36,7 @@
 #include "common/upstream/load_balancer_impl.h"
 
 #include "envoy/tcloud/tcloud_map.h"
+#include "common/common/base64.h"
 
 namespace Envoy {
 namespace Router {

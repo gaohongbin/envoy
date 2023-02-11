@@ -14,6 +14,7 @@
 #include "envoy/upstream/cluster_manager.h"
 #include "envoy/upstream/health_check_host_monitor.h"
 #include "envoy/upstream/upstream.h"
+#include "common/common/base64.h"
 
 #include "common/common/assert.h"
 #include "common/common/cleanup.h"
@@ -360,6 +361,8 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   /**
   * 在这里做测试, 先往 request 的 header 里面写入固定的泳道名称。 在测试没问题以后, 我们再实现真正的逻辑。
   */
+
+
   absl::string_view traceId = headers.getSw8Value();
   ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw8 = {}", *callbacks_, traceId);
   ENVOY_STREAM_LOG(debug, "tcloud router decoding headers:\n{}", *callbacks_, headers);
@@ -413,6 +416,15 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   // against nullptr before calling it), and feed it behavior later if/when we have cluster info
   // headers to append.
   std::function<void(Http::ResponseHeaderMap&)> modify_headers = [](Http::ResponseHeaderMap&) {};
+  
+  modify_headers = [traceId](Http::ResponseHeaderMap& headers) {
+      std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(traceId), '-');
+      if (sw8Spilts.size() >= 2) {
+        std::string sw8Base64 = sw8Spilts[1];
+        std::string sw8 = Base64::decodeWithoutPadding(absl::string_view(sw8Base64));
+        headers.addCopy(Http::LowerCaseString("tcloud-id"), sw8);
+      }
+  };
 
   // Determine if there is a route entry or a direct response for the request.
   // 针对当前 request 的 route, 可以通过查询缓存减少重复查询, 如果有更新, 一定要记得清理缓存。 
