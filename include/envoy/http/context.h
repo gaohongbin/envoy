@@ -13,6 +13,7 @@ struct UserAgentContext;
 /**
  * Captures http-related structures with cardinality of one per server.
  */
+ // 捕获与http相关的结构，每个服务器的基数为1。
 class Context {
 public:
   virtual ~Context() = default;

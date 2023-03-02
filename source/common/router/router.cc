@@ -367,7 +367,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw8 = {}", *callbacks_, traceId);
   ENVOY_STREAM_LOG(debug, "tcloud router decoding headers:\n{}", *callbacks_, headers);
 
-  if (config_.getTcloudMap() && !headers.getSw8Value().empty()) {
+  if (config_.getTcloudMap() && !headers.getSw8Value().empty() && !headers.getTcloudLaneValue().empty()) {
     // 对 sw8 的值进行分割, 取 traceId
     std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(headers.getSw8Value()), '-');
 

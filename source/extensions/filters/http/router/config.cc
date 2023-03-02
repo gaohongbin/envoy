@@ -11,6 +11,7 @@ namespace Extensions {
 namespace HttpFilters {
 namespace RouterFilter {
 
+// router 的初始化方法
 Http::FilterFactoryCb RouterFilterConfig::createFilterFactoryFromProtoTyped(
     const envoy::extensions::filters::http::router::v3::Router& proto_config,
     const std::string& stat_prefix, Server::Configuration::FactoryContext& context) {

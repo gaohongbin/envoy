@@ -26,6 +26,8 @@ namespace Http {
  * Return codes for encode/decode headers filter invocations. The connection manager bases further
  * filter invocations on the return code of the previous filter.
  */
+ // 编码/解码标头过滤器调用的返回代码。connection manager 根据前一个过滤器的返回码进一步调用过滤器。
+ // 所以对于 HttpConnectionManager 中管理多个 filter(core, router 等) 处理完 decodeHeaders 后返回这种状态码。
 enum class FilterHeadersStatus {
   // Continue filter chain iteration.
   Continue,
@@ -104,6 +106,8 @@ enum class FilterHeadersStatus {
  * Return codes for encode/decode data filter invocations. The connection manager bases further
  * filter invocations on the return code of the previous filter.
  */
+  // FilterDataStatus 针对 encode/decode data 的 filter 返回的状态。
+  // FilterDataStatus 注意和上面的 FilterHeadersStatus 进行区分。
 enum class FilterDataStatus {
   // Continue filter chain iteration. If headers have not yet been sent to the next filter, they
   // will be sent first via decodeHeaders()/encodeHeaders(). If data has previously been buffered,
@@ -179,6 +183,7 @@ enum class LocalErrorStatus {
  * The stream filter callbacks are passed to all filters to use for writing response data and
  * interacting with the underlying stream in general.
  */
+ // 流过滤器回调被传递给所有过滤器，用于写入响应数据并与一般的底层流进行交互。
 class StreamFilterCallbacks {
 public:
   virtual ~StreamFilterCallbacks() = default;
@@ -186,16 +191,20 @@ public:
   /**
    * @return const Network::Connection* the originating connection, or nullptr if there is none.
    */
+   // 返回原始 Network::Connection*, 没有则返回 nullptr
+   // 注意这里的 Connection 是 Network namespace 下的。
   virtual const Network::Connection* connection() PURE;
 
   /**
    * @return Event::Dispatcher& the thread local dispatcher for allocating timers, etc.
    */
+   // 返回一个本地线程调度
   virtual Event::Dispatcher& dispatcher() PURE;
 
   /**
    * Reset the underlying stream.
    */
+   // 重置 stream
   virtual void resetStream() PURE;
 
   /**
@@ -206,6 +215,7 @@ public:
    * NOTE: In the future we want to split route() into 2 methods, one that just
    * returns current route and another that actually resolve the route.
    */
+   // 返回当前请求的路由。假设实现可以在适用的情况下进行缓存以避免多次查找。如果过滤器以影响路由的方式修改了标头，则必须调用 clearRouteCache() 来清除缓存。
   virtual Router::RouteConstSharedPtr route() PURE;
 
   /**
@@ -223,6 +233,8 @@ public:
    * subsequent filters. We may want to persist callbacks so they always participate in later route
    * resolution or make it an independent entity like filters that gets called on route resolution.
    */
+   // 使用匹配的路由调用回调，回调可以选择通过返回 Router::RouteMatchStatus::Accept 来接受此路由.
+   // 如果有更多路由可用，则通过返回 Router::RouteMatchStatus::Continue 继续从最后匹配的路由匹配路由。
   virtual Router::RouteConstSharedPtr route(const Router::RouteCallback& cb) PURE;
 
   /**
@@ -298,6 +310,7 @@ public:
  * In RdsRouteConfigProviderImpl::onConfigUpdate(), before invoking the callback, a check is made to
  * verify if the callback is still available.
  */
+ // RouteConfigUpdatedCallback 用于通知 OnDemandRouteUpdate 过滤器有关 RouteConfig 更新的完成。在收到对按需更新请求的响应并传播更新之前，可以销毁发起原始按需请求的过滤器
 using RouteConfigUpdatedCallback = std::function<void(bool)>;
 using RouteConfigUpdatedCallbackSharedPtr = std::shared_ptr<RouteConfigUpdatedCallback>;
 
@@ -305,6 +318,7 @@ using RouteConfigUpdatedCallbackSharedPtr = std::shared_ptr<RouteConfigUpdatedCa
  * Stream decoder filter callbacks add additional callbacks that allow a decoding filter to restart
  * decoding if they decide to hold data (e.g. for buffering or rate limiting).
  */
+ // 流解码器过滤器回调添加了额外的回调，允许解码过滤器在决定保留数据时重新开始解码（例如用于缓冲或速率限制)
 class StreamDecoderFilterCallbacks : public virtual StreamFilterCallbacks {
 public:
   /**
@@ -599,6 +613,7 @@ public:
  * - onDestroy is used to cleanup all pending filter resources like pending http requests and
  * timers.
  */
+ // StreamFilterBase 是 StreamDecoderFilter 和 StreamEncoderFilter 的公共基类。
 class StreamFilterBase {
 public:
   virtual ~StreamFilterBase() = default;
@@ -947,6 +962,7 @@ using StreamEncoderFilterSharedPtr = std::shared_ptr<StreamEncoderFilter>;
 /**
  * A filter that handles both encoding and decoding.
  */
+ // StreamFilter 又同时继承了 StreamDecoderFilter 和 StreamEncoderFilter
 class StreamFilter : public virtual StreamDecoderFilter, public virtual StreamEncoderFilter {};
 
 using StreamFilterSharedPtr = std::shared_ptr<StreamFilter>;

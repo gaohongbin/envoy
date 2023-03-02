@@ -57,6 +57,8 @@ namespace Http {
  * Network::Filter that can be installed on a connection that will perform HTTP protocol agnostic
  * handling of a connection and all requests/pushes that occur on a connection.
  */
+ // 注意 ServerConnectionCallbacks 是在 HTTP namespace 下, 
+ // Network::ConnectionCallbacks 则是在 Network namespace 下, 两个是不同维度的。
 class ConnectionManagerImpl : Logger::Loggable<Logger::Id::http>,
                               public Network::ReadFilter,
                               public ServerConnectionCallbacks,
