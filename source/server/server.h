@@ -167,6 +167,7 @@ private:
 // ServerFactoryContextImpl implements both ServerFactoryContext and
 // TransportSocketFactoryContext for convenience as these two contexts
 // share common member functions and member variables.
+// ServerFactoryContextImpl 为方便起见同时实现 ServerFactoryContext 和 TransportSocketFactoryContext，因为这两个上下文共享公共成员函数和成员变量。
 class ServerFactoryContextImpl : public Configuration::ServerFactoryContext,
                                  public Configuration::TransportSocketFactoryContext {
 public:

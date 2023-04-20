@@ -72,6 +72,7 @@ ServerConnectionPtr ConnectionManagerUtility::autoCreateCodec(
   }
 }
 
+// 查找真正的 remoteIp
 Network::Address::InstanceConstSharedPtr ConnectionManagerUtility::mutateRequestHeaders(
     RequestHeaderMap& request_headers, Network::Connection& connection,
     ConnectionManagerConfig& config, const Router::Config& route_config,
@@ -146,6 +147,7 @@ Network::Address::InstanceConstSharedPtr ConnectionManagerUtility::mutateRequest
 
   // If the x-forwarded-proto header is not set, set it here, since Envoy uses it for determining
   // scheme and communicating it upstream.
+  // x-forwarded-proto 如果没有设置, 则进行设置
   if (!request_headers.ForwardedProto()) {
     request_headers.setReferenceForwardedProto(connection.ssl() ? Headers::get().SchemeValues.Https
                                                                 : Headers::get().SchemeValues.Http);

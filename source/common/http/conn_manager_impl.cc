@@ -268,6 +268,7 @@ void ConnectionManagerImpl::doDeferredStreamDestroy(ActiveStream& stream) {
 }
 
 // 一个 connection 可以同时管理多个 stream
+// 因为 ConnectionManagerImpl 继承了 ServerConnectionCallbacks, 这个方法就是 ServerConnectionCallbacks 的回调方法, 当有新的 request 到达时调用
 RequestDecoder& ConnectionManagerImpl::newStream(ResponseEncoder& response_encoder,
                                                  bool is_internally_created) {
   if (connection_idle_timer_) {
@@ -603,6 +604,7 @@ ConnectionManagerImpl::ActiveStream::ActiveStream(ConnectionManagerImpl& connect
                                                   uint32_t buffer_limit)
     : connection_manager_(connection_manager),
       stream_id_(connection_manager.random_generator_.random()),
+      // 卧槽, filter_manager_ 是每个 ActiveStream 一个呀。
       filter_manager_(*this, connection_manager_.read_callbacks_->connection().dispatcher(),
                       connection_manager_.read_callbacks_->connection(), stream_id_,
                       connection_manager_.config_.proxy100Continue(), buffer_limit,
@@ -1079,6 +1081,8 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   ConnectionManagerUtility::maybeNormalizeHost(*request_headers_, connection_manager_.config_,
                                                localPort());
 
+  // TODO 如果不是内部创建的请求, 则修改 remoteAddress
+  // 这里可以做一些修改。
   if (!state_.is_internally_created_) { // Only sanitize headers on first pass.
     // Modify the downstream remote address depending on configuration and headers.
     filter_manager_.setDownstreamRemoteAddress(ConnectionManagerUtility::mutateRequestHeaders(
@@ -1366,6 +1370,7 @@ void ConnectionManagerImpl::ActiveStream::refreshDurationTimeout() {
   max_stream_duration_timer_->enableTimer(timeout);
 }
 
+// 刷新 route 规则
 void ConnectionManagerImpl::ActiveStream::refreshCachedRoute(const Router::RouteCallback& cb) {
   Router::RouteConstSharedPtr route;
   if (request_headers_ != nullptr) {
@@ -1375,11 +1380,13 @@ void ConnectionManagerImpl::ActiveStream::refreshCachedRoute(const Router::Route
       snapScopedRouteConfig();
     }
     if (snapped_route_config_ != nullptr) {
+      // 可以去看 RouteConstSharedPtr ConfigImpl::route 的方法, 选出一个 routeEntry
       route = snapped_route_config_->route(cb, *request_headers_, filter_manager_.streamInfo(),
                                            stream_id_);
     }
   }
 
+  // 接下来看这里, 后面怎么使用。
   setRoute(route);
 }
 
@@ -1703,6 +1710,7 @@ ConnectionManagerImpl::ActiveStream::route(const Router::RouteCallback& cb) {
  * Declared as a StreamFilterCallbacks member function for filters to call directly, but also
  * functions as a helper to refreshCachedRoute(const Router::RouteCallback& cb).
  */
+ // 根据 route 选择具体的 cluster
 void ConnectionManagerImpl::ActiveStream::setRoute(Router::RouteConstSharedPtr route) {
   filter_manager_.streamInfo().route_entry_ = route ? route->routeEntry() : nullptr;
   cached_route_ = std::move(route);

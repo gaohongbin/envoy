@@ -14,6 +14,7 @@ namespace Extensions {
 namespace NetworkFilters {
 namespace RocketmqProxy {
 
+// 这都是静态方法, 可以看 codec.h 的定义
 RemotingCommandPtr Decoder::decode(Buffer::Instance& buffer, bool& underflow, bool& has_error,
                                    int request_code) {
   // Verify there is at least some bits, which stores frame length and header length
@@ -22,6 +23,7 @@ RemotingCommandPtr Decoder::decode(Buffer::Instance& buffer, bool& underflow, bo
     return nullptr;
   }
 
+  // 这里应该是获取总长度
   auto frame_length = buffer.peekBEInt<uint32_t>();
 
   if (frame_length > MAX_FRAME_SIZE) {
@@ -33,16 +35,21 @@ RemotingCommandPtr Decoder::decode(Buffer::Instance& buffer, bool& underflow, bo
     underflow = true;
     return nullptr;
   }
+  // 这里我理解其实就是移动 offset 指针
   buffer.drain(FRAME_LENGTH_FIELD_SIZE);
 
+  // 获取 header length
   auto mark = buffer.peekBEInt<uint32_t>();
   uint32_t header_length = adjustHeaderLength(mark);
+  // 总长度应该 = header length(四字节) + header + body
+  // 参考: https://jaskey.github.io/blog/2016/12/19/rocketmq-network-protocol/
   if (frame_length < header_length + FRAME_HEADER_LENGTH_FIELD_SIZE) {
     // There is an error in frame_length.
     // Make sure body_length is non-negative.
     has_error = true;
     return nullptr;
   }
+  // 移动 offset
   buffer.drain(FRAME_HEADER_LENGTH_FIELD_SIZE);
 
   uint32_t body_length = frame_length - FRAME_HEADER_LENGTH_FIELD_SIZE - header_length;
@@ -53,11 +60,13 @@ RemotingCommandPtr Decoder::decode(Buffer::Instance& buffer, bool& underflow, bo
 
   Buffer::OwnedImpl header_buffer;
   header_buffer.move(buffer, header_length);
+  // 获取 header 内容
   std::string header_json = header_buffer.toString();
   ENVOY_LOG(trace, "Request/Response Header JSON: {}", header_json);
 
   int32_t code, version, opaque;
   uint32_t flag;
+  // 只有 header 为 json 时进行处理。
   if (isJsonHeader(mark)) {
     ProtobufWkt::Struct header_struct;
 
@@ -95,6 +104,7 @@ RemotingCommandPtr Decoder::decode(Buffer::Instance& buffer, bool& underflow, bo
       return nullptr;
     }
     flag = filed_value_pair.at("flag").number_value();
+    // RemotingCommand 定义在 protocol.h 中，是对 RocketMQ 协议的封装
     RemotingCommandPtr cmd = std::make_unique<RemotingCommand>(code, version, opaque);
     cmd->flag(flag);
     if (filed_value_pair.contains("language")) {
@@ -107,6 +117,7 @@ RemotingCommandPtr Decoder::decode(Buffer::Instance& buffer, bool& underflow, bo
 
     cmd->body_.move(buffer, body_length);
 
+    // 如果是 response, 则调用 decodeResponseExtHeader
     if (RemotingCommand::isResponse(flag)) {
       if (filed_value_pair.contains("remark")) {
         cmd->remark(filed_value_pair.at("remark").string_value());
@@ -114,6 +125,7 @@ RemotingCommandPtr Decoder::decode(Buffer::Instance& buffer, bool& underflow, bo
       cmd->custom_header_ = decodeResponseExtHeader(static_cast<ResponseCode>(code), header_struct,
                                                     static_cast<RequestCode>(request_code));
     } else {
+      // 如果是 request, 则调用 decodeExtHeader
       cmd->custom_header_ = decodeExtHeader(static_cast<RequestCode>(code), header_struct);
     }
     return cmd;
@@ -329,6 +341,8 @@ CommandCustomHeaderPtr Decoder::decodeResponseExtHeader(ResponseCode response_co
   }
   const auto& filed_value_pair = header_struct.fields();
   switch (request_code) {
+  // 这里是针对 SendMessage 后的 rsp 做的解析
+  // 也就是说，发送了 req code = 310 或者 req code = 10 的请求后, 返回的 rsp 进行解析
   case RequestCode::SendMessage:
   case RequestCode::SendMessageV2: {
     auto send_message_response_header = new SendMessageResponseHeader();
@@ -350,6 +364,7 @@ CommandCustomHeaderPtr Decoder::decodeResponseExtHeader(ResponseCode response_co
   }
 }
 
+// 将 response 转换成 网络传输的格式
 void Encoder::encode(const RemotingCommandPtr& command, Buffer::Instance& data) {
 
   ProtobufWkt::Struct command_struct;
@@ -391,8 +406,10 @@ void Encoder::encode(const RemotingCommandPtr& command, Buffer::Instance& data) 
     (*fields)["extFields"] = ext_fields_v;
   }
 
+  // 生成 response header
   std::string json = MessageUtil::getJsonStringFromMessageOrDie(command_struct);
 
+  // 可以看出 frame_length = 4 + header_length + body_length
   int32_t frame_length = 4;
   int32_t header_length = json.size();
   frame_length += header_length;
@@ -406,6 +423,8 @@ void Encoder::encode(const RemotingCommandPtr& command, Buffer::Instance& data) 
   if (command->bodyLength() > 0) {
     data.add(command->body());
   }
+  // 总体上 response 和 request 都是遵循:
+  // totalLenght + headerLength + header(json) + body
 }
 
 } // namespace RocketmqProxy

@@ -63,6 +63,10 @@ class AdminInternalAddressConfig : public Http::InternalAddressConfig {
 /**
  * Implementation of Server::Admin.
  */
+
+// Admin 是为了实现 envoy 提供的一些 http 接口
+// envoy/source/server/admin 文件夹下面的所有文件, 都是为了实现不同的 http 接口的代码
+// 你看, 该文件夹下有很多 handler, 不同的 handler 处理不同的 http 接口。
 class AdminImpl : public Admin,
                   public Network::FilterChainManager,
                   public Network::FilterChainFactory,

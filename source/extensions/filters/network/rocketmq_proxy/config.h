@@ -29,6 +29,7 @@ private:
       Server::Configuration::FactoryContext& context) override;
 };
 
+// Config 的实现类
 class ConfigImpl : public Config, public Router::Config, Logger::Loggable<Logger::Id::config> {
 public:
   using RocketmqProxyConfig =
@@ -41,6 +42,7 @@ public:
   RocketmqFilterStats& stats() override { return stats_; }
   Upstream::ClusterManager& clusterManager() override { return context_.clusterManager(); }
   Router::RouterPtr createRouter() override {
+    // 直接用 context_.clusterManager() 来初始化 RouterImpl
     return std::make_unique<Router::RouterImpl>(context_.clusterManager());
   }
   bool developMode() const override { return develop_mode_; }
@@ -50,6 +52,7 @@ public:
   }
 
   std::string proxyAddress() override;
+  // 这里返回的是 RocketmqProxy::Config, 但是该类是 Router::Config 的子类。
   Router::Config& routerConfig() override { return *this; }
 
   // Router::Config
@@ -61,8 +64,10 @@ private:
   RocketmqFilterStats stats_;
   Router::RouteMatcherPtr route_matcher_;
   const bool develop_mode_;
+  // 瞬态对象存活的最大持续时间，建议超过 10s。
   std::chrono::milliseconds transient_object_life_span_;
 
+  // 默认 30s
   static constexpr uint64_t TransientObjectLifeSpan = 30 * 1000;
 };
 

@@ -28,6 +28,7 @@ enum class ConfigUpdateFailureReason {
 /**
  * A wrapper for xDS resources that have been deserialized from the wire.
  */
+ // 反序列化后的 XDS 资源
 class DecodedResource {
 public:
   virtual ~DecodedResource() = default;

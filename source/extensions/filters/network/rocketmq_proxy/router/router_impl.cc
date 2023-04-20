@@ -15,6 +15,7 @@ namespace NetworkFilters {
 namespace RocketmqProxy {
 namespace Router {
 
+// TODO 了解一下 Envoy::Upstream::ClusterManager 的实现及更新逻辑 (CDS 是怎么更新的)
 RouterImpl::RouterImpl(Envoy::Upstream::ClusterManager& cluster_manager)
     : cluster_manager_(cluster_manager), handle_(nullptr), active_message_(nullptr) {}
 
@@ -24,6 +25,7 @@ RouterImpl::~RouterImpl() {
   }
 }
 
+// 返回最终选择的上游节点
 Upstream::HostDescriptionConstSharedPtr RouterImpl::upstreamHost() { return upstream_host_; }
 
 void RouterImpl::onAboveWriteBufferHighWatermark() {
@@ -34,6 +36,7 @@ void RouterImpl::onBelowWriteBufferLowWatermark() {
   ENVOY_LOG(trace, "Below write buffer low watermark");
 }
 
+// 不管是哪种 Event 事件发生, 该 active_message_ 都需要重置清除。
 void RouterImpl::onEvent(Network::ConnectionEvent event) {
   switch (event) {
   case Network::ConnectionEvent::RemoteClose: {
@@ -65,6 +68,7 @@ const Envoy::Router::MetadataMatchCriteria* RouterImpl::metadataMatchCriteria() 
   return nullptr;
 }
 
+// 上游返回 rsp 数据时, 进行回调
 void RouterImpl::onUpstreamData(Buffer::Instance& data, bool end_stream) {
   ENVOY_LOG(trace, "Received some data from upstream: {} bytes, end_stream: {}", data.length(),
             end_stream);
@@ -73,12 +77,17 @@ void RouterImpl::onUpstreamData(Buffer::Instance& data, bool end_stream) {
   }
 }
 
+ // 将 request 发送给上游
+ // 主要逻辑: 通过上游 cluster, 获取 TCP 连接池, 再通过 request 生成一个和上游连接的 connection。
+ // 所以关键在 TCP 连接池的代码
 void RouterImpl::sendRequestToUpstream(ActiveMessage& active_message) {
   active_message_ = &active_message;
   int opaque = active_message_->downstreamRequest()->opaque();
   ASSERT(active_message_->metadata()->hasTopicName());
   std::string topic_name = active_message_->metadata()->topicName();
 
+  // 通过 proto config 文件获取 route_config, 生成 routeMatcher, 然后再生成 route
+  // 这里的 route 最终是根据 proto config 文件生成的
   RouteConstSharedPtr route = active_message.route();
   if (!route) {
     active_message.onError("No route for current request.");
@@ -88,6 +97,7 @@ void RouterImpl::sendRequestToUpstream(ActiveMessage& active_message) {
   }
 
   route_entry_ = route->routeEntry();
+  // 根据 route 返回的上游 clusterName,  从 cluster_manager_ 中获取 cluster 详细信息。
   const std::string cluster_name = route_entry_->clusterName();
   Upstream::ThreadLocalCluster* cluster = cluster_manager_.getThreadLocalCluster(cluster_name);
   if (!cluster) {
@@ -98,6 +108,7 @@ void RouterImpl::sendRequestToUpstream(ActiveMessage& active_message) {
   }
 
   cluster_info_ = cluster->info();
+  // cluster 正在维护
   if (cluster_info_->maintenanceMode()) {
     ENVOY_LOG(warn, "Cluster {} is under maintenance. Opaque: {}", cluster_name, opaque);
     active_message.onError("Cluster under maintenance.");
@@ -106,6 +117,7 @@ void RouterImpl::sendRequestToUpstream(ActiveMessage& active_message) {
     return;
   }
 
+  // TODO 获取 TCP 连接池, TCP 连接池的代码需要看看, 一些长链接的选择算法在这里
   Tcp::ConnectionPool::Instance* conn_pool =
       cluster->tcpConnPool(Upstream::ResourcePriority::Default, this);
   if (!conn_pool) {
@@ -115,6 +127,7 @@ void RouterImpl::sendRequestToUpstream(ActiveMessage& active_message) {
     return;
   }
 
+  // 看看连接池的代码, 这里的逻辑
   upstream_request_ = std::make_unique<UpstreamRequest>(*this);
   Tcp::ConnectionPool::Cancellable* cancellable = conn_pool->newConnection(*upstream_request_);
   if (cancellable) {
@@ -132,8 +145,11 @@ void RouterImpl::sendRequestToUpstream(ActiveMessage& active_message) {
   }
 }
 
+// 初始化 UpstreamRequest
 RouterImpl::UpstreamRequest::UpstreamRequest(RouterImpl& router) : router_(router) {}
 
+// UpstreamRequest 的两个回调接口。
+// onPoolReady 和 onPoolFailure
 void RouterImpl::UpstreamRequest::onPoolReady(Tcp::ConnectionPool::ConnectionDataPtr&& conn,
                                               Upstream::HostDescriptionConstSharedPtr host) {
   router_.connection_data_ = std::move(conn);
@@ -146,11 +162,13 @@ void RouterImpl::UpstreamRequest::onPoolReady(Tcp::ConnectionPool::ConnectionDat
   ENVOY_LOG(debug, "Current chosen host address: {}", host->address()->asString());
   // TODO(lizhanhui): we may optimize out encoding in case we there is no protocol translation.
   Buffer::OwnedImpl buffer;
+  // 将 downstreamRequest 编码后写入 connection_data_
   Encoder::encode(router_.active_message_->downstreamRequest(), buffer);
   router_.connection_data_->connection().write(buffer, false);
   ENVOY_LOG(trace, "Write data to upstream OK. Opaque: {}",
             router_.active_message_->downstreamRequest()->opaque());
 
+  // 针对 oneWay 的 req 进行处理
   if (router_.active_message_->metadata()->isOneWay()) {
     ENVOY_LOG(trace,
               "Reset ActiveMessage since data is written and the downstream request is one-way. "
@@ -169,6 +187,7 @@ void RouterImpl::UpstreamRequest::onPoolReady(Tcp::ConnectionPool::ConnectionDat
   }
 }
 
+// 连接池准备失败
 void RouterImpl::UpstreamRequest::onPoolFailure(Tcp::ConnectionPool::PoolFailureReason reason,
                                                 Upstream::HostDescriptionConstSharedPtr host) {
   if (router_.handle_) {
@@ -204,6 +223,9 @@ void RouterImpl::UpstreamRequest::onPoolFailure(Tcp::ConnectionPool::PoolFailure
   router_.reset();
 }
 
+// 这里 reset 两个地方
+// 1、 active_message 进行 reset
+// 2、 connection_data_ 进行 reset
 void RouterImpl::reset() {
   active_message_->onReset();
   if (connection_data_) {

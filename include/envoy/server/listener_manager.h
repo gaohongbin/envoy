@@ -51,6 +51,7 @@ struct ListenSocketCreationParams {
 /**
  * Factory for creating listener components.
  */
+ // 是一个用于创建 listener 的组件的工厂， 注意这里说的是 listener 里面的组件。
 class ListenerComponentFactory {
 public:
   virtual ~ListenerComponentFactory() = default;
@@ -127,6 +128,7 @@ public:
 class ListenerManager {
 public:
   // Indicates listeners to stop.
+  // 哪个方向的 listener 将被停止, 例如在 addOrUpdateListener 中会判断这个逻辑。
   enum class StopListenersType {
     // Listeners in the inbound direction are only stopped.
     InboundOnly,
@@ -137,6 +139,7 @@ public:
   // The types of listeners to be returned from listeners(ListenerState).
   // An enum instead of enum class so the underlying type is an int and bitwise operations can be
   // used without casting.
+  // ListenerManager 将 listener 进行分类管理。
   enum ListenerState : uint8_t {
     ACTIVE = 1 << 0,
     WARMING = 1 << 1,
@@ -162,6 +165,7 @@ public:
    *         a duplicate of the existing listener. This routine will throw an EnvoyException if
    *         there is a fundamental error preventing the listener from being added or updated.
    */
+   // 新的侦听器必须具有相同的配置地址。一旦新的侦听器准备好接受流量（例如，当 RDS 已初始化时），旧的侦听器将被优雅地排出。
   virtual bool addOrUpdateListener(const envoy::config::listener::v3::Listener& config,
                                    const std::string& version_info, bool modifiable) PURE;
 
@@ -189,6 +193,7 @@ public:
   /**
    * @return uint64_t the total number of connections owned by all listeners across all workers.
    */
+   // 获取连接数
   virtual uint64_t numConnections() const PURE;
 
   /**
@@ -205,6 +210,7 @@ public:
    * @param guard_dog supplies the guard dog to use for thread watching.
    * @param callback supplies the callback to complete server initialization.
    */
+   // 启动所有的 workers 用来接收连接, 
   virtual void startWorkers(GuardDog& guard_dog, std::function<void()> callback) PURE;
 
   /**
@@ -219,12 +225,14 @@ public:
    * Stop all threaded workers from running. When this routine returns all worker threads will
    * have exited.
    */
+   // 停止所有 workers, 该方法返回时, 则所有工作线程均已退出。
   virtual void stopWorkers() PURE;
 
   /*
    * Warn the listener manager of an impending update. This allows the listener to clear per-update
    * state.
    */
+   // 更新 listener 之前的一些准备工作, 不如删除上一次更新的统计数据
   virtual void beginListenerUpdate() PURE;
 
   /*

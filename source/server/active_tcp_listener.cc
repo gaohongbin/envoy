@@ -182,6 +182,8 @@ void ActiveTcpSocket::newConnection() {
   if (hand_off_restored_destination_connections_ &&
       socket_->addressProvider().localAddressRestored()) {
     // Find a listener associated with the original destination address.
+    // 对于网关来说, localAddress 就是请求的 destination address.
+    // 也就是说, 这里可能一个 envoy 部署在一个机器上, 但是这个机器有多个 IP, 所以监听器可以监听多个 IP。
     new_listener =
         listener_.parent_.getBalancedHandlerByAddress(*socket_->addressProvider().localAddress());
   }
@@ -238,6 +240,7 @@ void ActiveTcpListener::onReject(RejectCause cause) {
 void ActiveTcpListener::onAcceptWorker(Network::ConnectionSocketPtr&& socket,
                                        bool hand_off_restored_destination_connections,
                                        bool rebalanced) {
+  // 只是负载均衡一下而已
   if (!rebalanced) {
     Network::BalancedConnectionHandler& target_handler =
         config_->connectionBalancer().pickTargetHandler(*this);
@@ -247,10 +250,12 @@ void ActiveTcpListener::onAcceptWorker(Network::ConnectionSocketPtr&& socket,
     }
   }
 
+  // 真正的逻辑在这里, 通过 ConnectionSocket 初始化 ActiveTcpSocket
   auto active_socket = std::make_unique<ActiveTcpSocket>(*this, std::move(socket),
                                                          hand_off_restored_destination_connections);
 
   // Create and run the filters
+  // 创建 listener filter
   config_->filterChainFactory().createListenerFilterChain(*active_socket);
   active_socket->continueFilterChain(true);
 
@@ -286,10 +291,12 @@ void ActiveTcpListener::resumeListening() {
   }
 }
 
+// 新建一个 ActiveTcpConnection 纳入 connections_by_context_ 的管理中
 void ActiveTcpListener::newConnection(Network::ConnectionSocketPtr&& socket,
                                       std::unique_ptr<StreamInfo::StreamInfo> stream_info) {
 
   // Find matching filter chain.
+  // 对于网关而言, 这里直接就是 listener 对应的 FilterChain
   const auto filter_chain = config_->filterChainManager().findFilterChain(*socket);
   if (filter_chain == nullptr) {
     ENVOY_LOG(debug, "closing connection: no matching filter chain found");
@@ -301,21 +308,28 @@ void ActiveTcpListener::newConnection(Network::ConnectionSocketPtr&& socket,
     return;
   }
 
+  // 将 filterChainName 赋值给 streamInfo
   stream_info->setFilterChainName(filter_chain->name());
   auto transport_socket = filter_chain->transportSocketFactory().createTransportSocket(nullptr);
   stream_info->setDownstreamSslConnection(transport_socket->ssl());
+  // 获取相同 filterChain 对应的 ActiveConnections
+  // 注意这个 ActiveConnections 的结构体, 应该不是一个实例，因为其成员变量包含 std::list<ActiveTcpConnectionPtr> connections_;
   auto& active_connections = getOrCreateActiveConnections(*filter_chain);
+  // 创建 ServerConnection
   auto server_conn_ptr = parent_.dispatcher().createServerConnection(
       std::move(socket), std::move(transport_socket), *stream_info);
+  // 设置 tls 超时
   if (const auto timeout = filter_chain->transportSocketConnectTimeout();
       timeout != std::chrono::milliseconds::zero()) {
     server_conn_ptr->setTransportSocketConnectTimeout(timeout);
   }
+  // 创建 ActiveTcpConnection 作为新的连接
   ActiveTcpConnectionPtr active_connection(
       new ActiveTcpConnection(active_connections, std::move(server_conn_ptr),
                               parent_.dispatcher().timeSource(), std::move(stream_info)));
   active_connection->connection_->setBufferLimits(config_->perConnectionBufferLimitBytes());
 
+  // 创建 networkFilterChain
   const bool empty_filter_chain = !config_->filterChainFactory().createNetworkFilterChain(
       *active_connection->connection_, filter_chain->networkFilterFactories());
   if (empty_filter_chain) {
@@ -324,6 +338,7 @@ void ActiveTcpListener::newConnection(Network::ConnectionSocketPtr&& socket,
   }
 
   // If the connection is already closed, we can just let this connection immediately die.
+  // 将 active_connection 添加到 ActiveConnections 的成员变量 connections_ 列表里面。
   if (active_connection->connection_->state() != Network::Connection::State::Closed) {
     ENVOY_CONN_LOG(debug, "new connection", *active_connection->connection_);
     active_connection->connection_->addConnectionCallbacks(*active_connection);
@@ -333,6 +348,7 @@ void ActiveTcpListener::newConnection(Network::ConnectionSocketPtr&& socket,
 
 ActiveConnections&
 ActiveTcpListener::getOrCreateActiveConnections(const Network::FilterChain& filter_chain) {
+  // 这种语句，是不是后面操作 connections 也会影响到 connections_by_context_
   ActiveConnectionsPtr& connections = connections_by_context_[&filter_chain];
   if (connections == nullptr) {
     connections = std::make_unique<ActiveConnections>(*this, filter_chain);
@@ -363,6 +379,7 @@ void ActiveTcpListener::deferredRemoveFilterChains(
   is_deleting_ = was_deleting;
 }
 
+// 这里将 socket 传给了 dispatcher
 void ActiveTcpListener::post(Network::ConnectionSocketPtr&& socket) {
   // It is not possible to capture a unique_ptr because the post() API copies the lambda, so we must
   // bundle the socket inside a shared_ptr that can be captured.

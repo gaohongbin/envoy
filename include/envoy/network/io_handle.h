@@ -296,6 +296,9 @@ public:
    * @param events supplies a logical OR of @ref Event::FileReadyType events that the file event
    *               should initially listen on.
    */
+   // 初始化内部文件事件，该事件将在 io 句柄可读、可写或关闭时发出信号。
+  // 每个句柄只允许有一个文件事件。内部文件事件由句柄管理，并在套接字阻塞时打开和关闭。
+  // 对该函数的调用必须与重置文件事件或关闭套接字的调用配对。
   virtual void initializeFileEvent(Event::Dispatcher& dispatcher, Event::FileReadyCb cb,
                                    Event::FileTriggerType trigger, uint32_t events) PURE;
 

@@ -78,8 +78,10 @@ InstanceImpl::InstanceImpl(
                          process_context ? ProcessContextOptRef(std::ref(*process_context))
                                          : absl::nullopt,
                          watermark_factory)),
+       // 创建 Dispatcher
       dispatcher_(api_->allocateDispatcher("main_thread")),
       singleton_manager_(new Singleton::ManagerImpl(api_->threadFactory())),
+      // 将上面刚创建的 main_thread 的 dispatcher 分配给 ConnectionHandlerImpl
       handler_(new ConnectionHandlerImpl(*dispatcher_, absl::nullopt)),
       listener_component_factory_(*this), worker_factory_(thread_local_, *api_, hooks),
       access_log_manager_(options.fileFlushIntervalMsec(), *api_, *dispatcher_, access_log_lock,
@@ -669,6 +671,7 @@ void InstanceImpl::onRuntimeReady() {
 
 void InstanceImpl::startWorkers() {
   // The callback will be called after workers are started.
+  // 
   listener_manager_->startWorkers(*worker_guard_dog_, [this]() {
     if (isShutdown()) {
       return;

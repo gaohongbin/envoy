@@ -25,6 +25,7 @@ namespace Network {
 /**
  * Events that occur on a connection.
  */
+ // connection 上可能发生的事件类型
 enum class ConnectionEvent {
   RemoteClose,
   LocalClose,
@@ -34,11 +35,13 @@ enum class ConnectionEvent {
 /**
  * Connections have both a read and write buffer.
  */
+ // 连接有一个读缓冲区和一个写缓冲区。
 enum class ConnectionBufferType { Read, Write };
 
 /**
  * Network level callbacks that happen on a connection.
  */
+ // connection 上发生的网络级回调
 class ConnectionCallbacks {
 public:
   virtual ~ConnectionCallbacks() = default;
@@ -47,26 +50,33 @@ public:
    * Callback for connection events.
    * @param events supplies the ConnectionEvent that occurred.
    */
+   // connection 上事件的回调函数
   virtual void onEvent(ConnectionEvent event) PURE;
 
   /**
    * Called when the write buffer for a connection goes over its high watermark.
    */
+   // 当连接的写入缓冲区超过其高水位线时调用。
   virtual void onAboveWriteBufferHighWatermark() PURE;
 
   /**
    * Called when the write buffer for a connection goes from over its high
    * watermark to under its low watermark.
    */
+   // 当连接的写入缓冲区从其高水位线以上变为其低水位线以下时调用。
   virtual void onBelowWriteBufferLowWatermark() PURE;
 };
 
 /**
  * Type of connection close to perform.
  */
+ // connection 关闭时要执行的操作
 enum class ConnectionCloseType {
+  // 刷入正处于 pending 的写数据
   FlushWrite, // Flush pending write data before raising ConnectionEvent::LocalClose
+  // 挂起之前不进行刷入
   NoFlush,    // Do not flush any pending data and immediately raise ConnectionEvent::LocalClose
+  // 刷入正处于 pending 的写数据, 并暂停挂起, 直到 delayed_close_timeout 超时
   FlushWriteAndDelay // Flush pending write data and delay raising a ConnectionEvent::LocalClose
                      // until the delayed_close_timeout expires
 };
@@ -74,8 +84,11 @@ enum class ConnectionCloseType {
 /**
  * An abstract raw connection. Free the connection or call close() to disconnect.
  */
+ // 抽象的原始连接。释放连接或调用 close() 断开连接。
+ // 这里的 FilterManager 是 network 这个 namespace 下的。
 class Connection : public Event::DeferredDeletable, public FilterManager {
 public:
+  // Connection 可能的状态: Open, Closing, Closed
   enum class State { Open, Closing, Closed };
 
   /**
@@ -85,16 +98,22 @@ public:
    * the callback will be called again in the future. If false is returned, the callback
    * will be removed from callback list.
    */
+   // connection 发送数据后的回调函数
+   // return bool 的含义:
+   // 指示将来是否应调用回调。如果返回 true，回调将在未来再次调用。如果返回 false，回调将从回调列表中删除。
   using BytesSentCb = std::function<bool(uint64_t bytes_sent)>;
 
+  // 一些统计数据而已
   struct ConnectionStats {
     Stats::Counter& read_total_;
     Stats::Gauge& read_current_;
     Stats::Counter& write_total_;
     Stats::Gauge& write_current_;
     // Counter* as this is an optional counter. Bind errors will not be tracked if this is nullptr.
+    // Counter* 因为这是一个可选的计数器。如果这是 nullptr，则不会跟踪绑定错误。
     Stats::Counter* bind_errors_;
     // Optional counter. Delayed close timeouts will not be tracked if this is nullptr.
+    // 可选计数器。如果这是 nullptr，则不会跟踪延迟关闭超时。
     Stats::Counter* delayed_close_timeouts_;
   };
 
@@ -103,16 +122,21 @@ public:
   /**
    * Register callbacks that fire when connection events occur.
    */
+   // 添加 ConnectionCallbacks
+   // ConnectionCallbacks 可以参考上面的定义
   virtual void addConnectionCallbacks(ConnectionCallbacks& cb) PURE;
 
   /**
    * Unregister callbacks which previously fired when connection events occur.
    */
+   // 移除 ConnectionCallbacks
   virtual void removeConnectionCallbacks(ConnectionCallbacks& cb) PURE;
 
   /**
    * Register for callback every time bytes are written to the underlying TransportSocket.
    */
+   // 添加 BytesSentCb
+   // 每次将字节写入底层 TransportSocket 时的回调函数。
   virtual void addBytesSentCallback(BytesSentCb cb) PURE;
 
   /**
@@ -120,6 +144,8 @@ public:
    * will not fully close the connection. This is off by default.
    * @param enabled Whether to set half-close semantics as enabled or disabled.
    */
+   // 在此连接上启用半关闭语义: 在对方半关闭的情况下, 读取数据不会导致关闭该连接。
+   // 这是默认关闭的。
   virtual void enableHalfClose(bool enabled) PURE;
 
   /**
@@ -135,17 +161,20 @@ public:
   /**
    * @return Event::Dispatcher& the dispatcher backing this connection.
    */
+   // 获取 dispatcher 调度程序
   virtual Event::Dispatcher& dispatcher() PURE;
 
   /**
    * @return uint64_t the unique local ID of this connection.
    */
+   // connection 的唯一 ID
   virtual uint64_t id() const PURE;
 
   /**
    * @param vector of bytes to which the connection should append hash key data. Any data already in
    * the key vector must not be modified.
    */
+  // 给 connection 绑定的 hash 数据, 而且不允许改变。
   virtual void hashKey(std::vector<uint8_t>& hash) const PURE;
 
   /**
@@ -153,6 +182,7 @@ public:
    *         ALPN). If network level negotiation is not supported by the connection or no protocol
    *         has been negotiated the empty string is returned.
    */
+   // 跟协议有关, 有兴趣回头看看
   virtual std::string nextProtocol() const PURE;
 
   /**
@@ -181,6 +211,8 @@ public:
    * @param should_detect supplies if disconnects should be detected when the connection has been
    * read disabled
    */
+   // 设置 Envoy 是否应在调用 readDisable(true) 时检测 TCP 连接是否关闭。
+   // 默认情况下，对于新创建的连接会设置为 true。
   virtual void detectEarlyCloseWhenReadDisabled(bool should_detect) PURE;
 
   /**
@@ -223,6 +255,8 @@ public:
    * these stats are eventually consistent and may not always accurately represent the connection
    * state at any given point in time.
    */
+  // 设置统计信息以针对各种连接状态更改进行更新。
+  // 请注意，出于性能原因，这些统计数据最终是一致的，可能并不总是准确地表示任何给定时间点的连接状态。
   virtual void setConnectionStats(const ConnectionStats& stats) PURE;
 
   /**
@@ -245,6 +279,8 @@ public:
    * @return true if the connection has not completed connecting, false if the connection is
    * established.
    */
+   // 返回 true: 如果 connection 还没有完成连接.
+   // 返回 false: 如果 connection 已经建立。
   virtual bool connecting() const PURE;
 
   /**
@@ -267,6 +303,7 @@ public:
    * write buffer, onBelowWriteBufferHighWatermark is called which similarly allows subscribers
    * resuming reading.
    */
+   // 对连接的缓冲区大小设置软限制。
   virtual void setBufferLimits(uint32_t limit) PURE;
 
   /**
@@ -293,6 +330,9 @@ public:
    *
    * @return StreamInfo object associated with this connection.
    */
+   // 与此连接关联的 StreamInfo 对象。这通常用于记录目的。
+  // 各个过滤器可以通过 StreamInfo 对象中的 FilterState 对象添加特定信息。
+  // 此上下文中的 StreamInfo 对象是每个连接一个，即不同于 http ConnectionManager 实现中每个请求一个的对象。
   virtual StreamInfo::StreamInfo& streamInfo() PURE;
   virtual const StreamInfo::StreamInfo& streamInfo() const PURE;
 
@@ -330,6 +370,7 @@ using ConnectionPtr = std::unique_ptr<Connection>;
 /**
  * Connections servicing inbound connects.
  */
+ // 为 inbound 提供服务的连接。
 class ServerConnection : public virtual Connection {
 public:
   /**
@@ -345,12 +386,14 @@ using ServerConnectionPtr = std::unique_ptr<ServerConnection>;
 /**
  * Connections capable of outbound connects.
  */
+ // 为 outbound 提供服务的连接
 class ClientConnection : public virtual Connection {
 public:
   /**
    * Connect to a remote host. Errors or connection events are reported via the event callback
    * registered via addConnectionCallbacks().
    */
+   // 连接到远程主机。通过 addConnectionCallbacks() 注册的事件回调报告错误或连接事件。
   virtual void connect() PURE;
 };
 

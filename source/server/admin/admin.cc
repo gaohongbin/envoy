@@ -142,6 +142,8 @@ void AdminImpl::startHttpListener(const std::list<AccessLog::InstanceSharedPtr>&
   }
 }
 
+// 可以看出 AdminImpl 主要是处理 envoy 提供的各种 http 方法, 方便用户进行调试查询.
+// 而且主要是用的 server 进行处理, 这个 server 就是 Server::Instance
 AdminImpl::AdminImpl(const std::string& profile_path, Server::Instance& server)
     : server_(server),
       request_id_extension_(Extensions::RequestId::UUIDRequestIDExtension::defaultInstance(

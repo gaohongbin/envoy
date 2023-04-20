@@ -76,6 +76,7 @@ public:
    * @return whether this address is a valid unicast address, i.e., not an wild card, broadcast, or
    * multicast address.
    */
+   // 该地址是否是有效的单播地址，即不是通配符、广播或多播地址。
   virtual bool isUnicastAddress() const PURE;
 
   /**
@@ -121,6 +122,7 @@ public:
 /**
  * Interface for a generic internal address.
  */
+ // envoy 内部地址
 class EnvoyInternalAddress {
 public:
   virtual ~EnvoyInternalAddress() = default;
@@ -137,6 +139,7 @@ enum class Type { Ip, Pipe, EnvoyInternal };
 /**
  * Interface for all network addresses.
  */
+ // 所有 网络地址的接口
 class Instance {
 public:
   virtual ~Instance() = default;

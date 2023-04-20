@@ -14,6 +14,7 @@ namespace Extensions {
 namespace HttpFilters {
 namespace RBACFilter {
 
+// 初始化方法
 RoleBasedAccessControlFilterConfig::RoleBasedAccessControlFilterConfig(
     const envoy::extensions::filters::http::rbac::v3::RBAC& proto_config,
     const std::string& stats_prefix, Stats::Scope& scope)
@@ -23,6 +24,8 @@ RoleBasedAccessControlFilterConfig::RoleBasedAccessControlFilterConfig(
       engine_(Filters::Common::RBAC::createEngine(proto_config)),
       shadow_engine_(Filters::Common::RBAC::createShadowEngine(proto_config)) {}
 
+
+// engine 方法
 const Filters::Common::RBAC::RoleBasedAccessControlEngineImpl*
 RoleBasedAccessControlFilterConfig::engine(const Router::RouteConstSharedPtr route,
                                            Filters::Common::RBAC::EnforcementMode mode) const {
@@ -30,6 +33,7 @@ RoleBasedAccessControlFilterConfig::engine(const Router::RouteConstSharedPtr rou
     return engine(mode);
   }
 
+  // envoy.filters.http.rbac
   const std::string& name = HttpFilterNames::get().Rbac;
   const auto* entry = route->routeEntry();
   const auto* route_local =
@@ -69,6 +73,8 @@ RoleBasedAccessControlFilter::decodeHeaders(Http::RequestHeaderMap& headers, boo
           : "none",
       headers, callbacks_->streamInfo().dynamicMetadata().DebugString());
 
+  // 了解到 Shadow: 不会强制执行, 但是会发出统计信息和日志, 主要是为了方便调试。
+  // Enforced 会被过滤器强制执行的规则。
   std::string effective_policy_id;
   const auto shadow_engine =
       config_->engine(callbacks_->route(), Filters::Common::RBAC::EnforcementMode::Shadow);

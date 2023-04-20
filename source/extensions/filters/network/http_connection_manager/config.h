@@ -47,6 +47,7 @@ class HttpConnectionManagerFilterConfigFactory
       public Common::FactoryBase<
           envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager> {
 public:
+  // 通过 FactoryBase 定义了 name, 所以 REGISTER_FACTORY 中才可以使用 name 来获取 FilterConfigFactory
   HttpConnectionManagerFilterConfigFactory()
       : FactoryBase(NetworkFilterNames::get().HttpConnectionManager, true) {}
 

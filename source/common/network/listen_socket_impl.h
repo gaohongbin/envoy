@@ -17,6 +17,7 @@
 namespace Envoy {
 namespace Network {
 
+// 服务端 Socket, 执行 bind
 class ListenSocketImpl : public SocketImpl {
 protected:
   ListenSocketImpl(IoHandlePtr&& io_handle, const Address::InstanceConstSharedPtr& local_address)
@@ -46,6 +47,7 @@ template <> struct NetworkSocketTrait<Socket::Type::Datagram> {
   static constexpr Socket::Type type = Socket::Type::Datagram;
 };
 
+// 继续对 ListenSocketImpl 进行抽象
 template <typename T> class NetworkListenSocket : public ListenSocketImpl {
 public:
   NetworkListenSocket(const Address::InstanceConstSharedPtr& address,
@@ -83,6 +85,7 @@ public:
   Socket::Type socketType() const override { return Socket::Type::Stream; }
 };
 
+// ConnectionSocket: A socket passed to a connection.
 class ConnectionSocketImpl : public SocketImpl, public ConnectionSocket {
 public:
   ConnectionSocketImpl(IoHandlePtr&& io_handle,
@@ -139,6 +142,7 @@ protected:
 };
 
 // ConnectionSocket used with server connections.
+// server connections 使用 AcceptedSocketImpl
 class AcceptedSocketImpl : public ConnectionSocketImpl {
 public:
   AcceptedSocketImpl(IoHandlePtr&& io_handle, const Address::InstanceConstSharedPtr& local_address,
@@ -161,6 +165,7 @@ private:
 };
 
 // ConnectionSocket used with client connections.
+// client connections 使用 ClientSocketImpl, 因为继承自 ConnectionSocketImpl, 所以也是有 connect 方法的。
 class ClientSocketImpl : public ConnectionSocketImpl {
 public:
   ClientSocketImpl(const Address::InstanceConstSharedPtr& remote_address,

@@ -263,6 +263,7 @@ public:
    * Posts a functor to the dispatcher. This is safe cross thread. The functor runs in the context
    * of the dispatcher event loop which may be on a different thread than the caller.
    */
+   // 线程安全的将 callback 传递给 dispathcer, 然后由 dispatcher 统一进行处理。
   virtual void post(PostCb callback) PURE;
 
   /**

@@ -12,6 +12,7 @@
 #include "envoy/stats/stats_macros.h"
 #include "envoy/stats/timespan.h"
 #include "envoy/upstream/thread_local_cluster.h"
+#include "envoy/tcloud/tcloud_map.h"
 
 #include "common/buffer/buffer_impl.h"
 #include "common/common/logger.h"
@@ -28,6 +29,7 @@ namespace Extensions {
 namespace NetworkFilters {
 namespace RocketmqProxy {
 
+// RocketmqProxy 的 Config 配置
 class Config {
 public:
   virtual ~Config() = default;
@@ -83,7 +85,7 @@ private:
 
 class ConnectionManager : public Network::ReadFilter, Logger::Loggable<Logger::Id::filter> {
 public:
-  ConnectionManager(Config& config, TimeSource& time_source);
+  ConnectionManager(Config& config, TimeSource& time_source, std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map = nullptr);
 
   ~ConnectionManager() override = default;
 
@@ -175,6 +177,8 @@ public:
 
   TimeSource& timeSource() const { return time_source_; }
 
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> getTcloudMap() { return tcloud_map_; }
+
   const absl::flat_hash_map<std::string, AckMessageDirective>& getAckDirectiveTableForTest() const {
     return ack_directive_table_;
   }
@@ -199,6 +203,8 @@ private:
   TimeSource& time_source_;
   RocketmqFilterStats& stats_;
 
+  // 一个 conn_manager 管理多个 active_message,
+  // 每个 active_message 是一个 request 和 一个 response 的封装。
   std::list<ActiveMessagePtr> active_message_list_;
 
   absl::flat_hash_map<std::string, std::vector<ConsumerGroupMember>> group_members_;
@@ -207,7 +213,12 @@ private:
    * Message unique key to message acknowledge directive mapping.
    * Acknowledge requests first consult this table to determine which host in the cluster to go.
    */
+  // 消息确认指令映射的消息唯一键。
+  // 确认请求首先参考此表以确定集群中的哪个主机。
   absl::flat_hash_map<std::string, AckMessageDirective> ack_directive_table_;
+
+  // tcloud 相关
+  std::shared_ptr<Envoy::TcloudMap::TcloudMap<std::string, std::string, Envoy::TcloudMap::LFUCachePolicy>> tcloud_map_;
 };
 } // namespace RocketmqProxy
 } // namespace NetworkFilters

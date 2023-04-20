@@ -627,6 +627,7 @@ using MetadataMatchCriterionConstSharedPtr = std::shared_ptr<const MetadataMatch
 class MetadataMatchCriteria;
 using MetadataMatchCriteriaConstPtr = std::unique_ptr<const MetadataMatchCriteria>;
 
+// MetadataMatchCriteria 元数据匹配条件
 class MetadataMatchCriteria {
 public:
   virtual ~MetadataMatchCriteria() = default;
@@ -636,6 +637,7 @@ public:
    * metadata to be matched against upstream endpoints when load
    * balancing, sorted lexically by name.
    */
+  // 负载平衡时要与上游端点匹配的 元数据数组，按名称排序。
   virtual const std::vector<MetadataMatchCriterionConstSharedPtr>&
   metadataMatchCriteria() const PURE;
 
@@ -647,6 +649,8 @@ public:
    * @param metadata_matches supplies the new criteria.
    * @return MetadataMatchCriteriaConstPtr the result criteria.
    */
+   // 创建一个新的 MetadataMatchCriteria，将现有的元数据条件与提供的条件合并。结果标准是两组标准的组合.
+   // 其中来自 metadata_matches ProtobufWkt::Struct 的标准优先。
   virtual MetadataMatchCriteriaConstPtr
   mergeMatchCriteria(const ProtobufWkt::Struct& metadata_matches) const PURE;
 
@@ -1121,7 +1125,7 @@ using RouteCallback = std::function<RouteMatchStatus(RouteConstSharedPtr, RouteE
 /**
  * The router configuration.
  */
-// 原来根据 header 进行route 是在这里做的。
+// 原来根据 header 进行 route 是在这里做的。
 class Config {
 public:
   virtual ~Config() = default;
@@ -1164,7 +1168,7 @@ public:
    * Return a list of headers that will be cleaned from any requests that are not from an internal
    * (RFC1918) source.
    */
-   // 如果 req 非内部源请求, 则将 req header 中的这些 key:val 进行清楚, 返回 key 列表
+   // 如果 req 非内部源请求, 则将 req header 中的这些 key:val 进行清除, 返回 key 列表
   virtual const std::list<Http::LowerCaseString>& internalOnlyHeaders() const PURE;
 
   /**
@@ -1237,6 +1241,7 @@ public:
  * An API for the interactions the upstream stream needs to have with the downstream stream
  * and/or router components
  */
+ // 用于 upstream 需要与 downstream 或者 router 组件进行交互的 API
 class UpstreamToDownstream : public Http::ResponseDecoder, public Http::StreamCallbacks {
 public:
   /**

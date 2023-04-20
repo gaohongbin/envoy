@@ -17,6 +17,7 @@ namespace Config {
  * In general, this is intended to be used only on the main thread, as part of the Server instance
  * interface and config subsystem.
  */
+ // xDS 上下文参数的提供程序。这些目前来自引导程序，但在不久的将来会在运行时动态设置，因为我们添加了对动态上下文参数发现和更新的支持。
 class ContextProvider {
 public:
   /**

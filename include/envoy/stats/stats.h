@@ -118,6 +118,7 @@ using CounterSharedPtr = RefcountPtr<Counter>;
 /**
  * A gauge that can both increment and decrement.
  */
+ // gauge 可以增加也可以减少
 class Gauge : public Metric {
 public:
   enum class ImportMode {

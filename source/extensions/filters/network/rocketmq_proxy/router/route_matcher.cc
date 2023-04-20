@@ -31,7 +31,9 @@ const std::string& RouteEntryImpl::clusterName() const { return cluster_name_; }
 const RouteEntry* RouteEntryImpl::routeEntry() const { return this; }
 
 RouteConstSharedPtr RouteEntryImpl::matches(const MessageMetadata& metadata) const {
+  // 先判断 request header 是否匹配
   if (headersMatch(metadata.headers())) {
+    // 判断匹配时, 额外判断了 topic
     const std::string& topic_name = metadata.topicName();
     if (topic_name_.match(topic_name)) {
       return shared_from_this();
@@ -40,12 +42,14 @@ RouteConstSharedPtr RouteEntryImpl::matches(const MessageMetadata& metadata) con
   return nullptr;
 }
 
+// metadata.headers() 和 config_headers_ 进行匹配
 bool RouteEntryImpl::headersMatch(const Http::HeaderMap& headers) const {
   ENVOY_LOG(debug, "rocketmq route matcher: headers size {}, metadata headers size {}",
             config_headers_.size(), headers.size());
   return Http::HeaderUtility::matchHeaders(headers, config_headers_);
 }
 
+// 初始化 RouteMatcher
 RouteMatcher::RouteMatcher(const RouteConfig& config) {
   for (const auto& route : config.routes()) {
     routes_.emplace_back(std::make_shared<RouteEntryImpl>(route));
@@ -53,9 +57,11 @@ RouteMatcher::RouteMatcher(const RouteConfig& config) {
   ENVOY_LOG(debug, "rocketmq route matcher: routes list size {}", routes_.size());
 }
 
+// 遍历 routes_ 找出 route_entry
 RouteConstSharedPtr RouteMatcher::route(const MessageMetadata& metadata) const {
   const std::string& topic_name = metadata.topicName();
   for (const auto& route : routes_) {
+    // 这里 route 就是 RouteEntryImpl
     RouteConstSharedPtr route_entry = route->matches(metadata);
     if (nullptr != route_entry) {
       ENVOY_LOG(debug, "rocketmq route matcher: find cluster success for topic: {}", topic_name);

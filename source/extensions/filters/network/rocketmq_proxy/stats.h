@@ -13,6 +13,7 @@ namespace RocketmqProxy {
 /**
  * All rocketmq filter stats. @see stats_macros.h
  */
+ // rocketmq 的统计数据
 #define ALL_ROCKETMQ_FILTER_STATS(COUNTER, GAUGE, HISTOGRAM)                                       \
   COUNTER(request)                                                                                 \
   COUNTER(request_decoding_error)                                                                  \

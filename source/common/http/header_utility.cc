@@ -80,6 +80,7 @@ HeaderUtility::HeaderData::HeaderData(const envoy::config::route::v3::HeaderMatc
   }
 }
 
+//
 bool HeaderUtility::matchHeaders(const HeaderMap& request_headers,
                                  const std::vector<HeaderDataPtr>& config_headers) {
   // No headers to match is considered a match.

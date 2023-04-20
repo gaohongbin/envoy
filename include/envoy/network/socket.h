@@ -47,6 +47,10 @@ private:
  * and a getters + setters interface. This is so that only the getters portion can be overridden
  * in certain cases.
  */
+// 用于提供套接字的各种地址的接口。
+// 该接口提供了两种:
+// 1、 只有 get 方法。
+// 2、 有 get 也有 set 方法。
 class SocketAddressProvider {
 public:
   virtual ~SocketAddressProvider() = default;
@@ -71,6 +75,7 @@ public:
    * @return the direct remote address of the socket. This is the address of the directly
    *         connected peer, and cannot be modified by listener filters.
    */
+   // TODO 和 remoteAddress() 的区别是什么还没理解
   virtual const Address::InstanceConstSharedPtr& directRemoteAddress() const PURE;
 
   /**
@@ -79,9 +84,11 @@ public:
    * @param os the std::ostream to dump to.
    * @param indent_level the level of indentation.
    */
+   // 将 SocketAddressProvider 的状态转储到给定的 ostream。
   virtual void dumpState(std::ostream& os, int indent_level) const PURE;
 };
 
+// 这应该就是包含 set 和 get 的 SocketAddress 接口
 class SocketAddressSetter : public SocketAddressProvider {
 public:
   /**
@@ -91,6 +98,9 @@ public:
    *
    * @param local_address the new local address.
    */
+   // 设置套接字的本地地址。
+  // 对于 accepted sockets，本地地址默认为接收连接的地址。
+  // 如果侦听器绑定到特定地址，则该地址与侦听器的地址相同。
   virtual void setLocalAddress(const Address::InstanceConstSharedPtr& local_address) PURE;
 
   /**
@@ -117,6 +127,8 @@ using SocketAddressProviderSharedPtr = std::shared_ptr<const SocketAddressProvid
 /**
  * Base class for Sockets
  */
+ // 这里涉及到网络编程相关内容。
+ // 监听的 socket 和真正用来传送数据的 socket，是「两个」 socket，一个叫作监听 socket，一个叫作已完成连接 socket。
 class Socket {
 public:
   virtual ~Socket() = default;
@@ -181,6 +193,7 @@ public:
    * @return a Api::SysCallIntResult with rc_ = 0 for success and rc_ = -1 for failure. If the call
    *   is successful, errno_ shouldn't be used.
    */
+   // 服务端 socket 绑定地址
   virtual Api::SysCallIntResult bind(const Address::InstanceConstSharedPtr address) PURE;
 
   /**
@@ -189,6 +202,7 @@ public:
    * @return a Api::SysCallIntResult with rc_ = 0 for success and rc_ = -1 for failure. If the call
    *   is successful, errno_ shouldn't be used.
    */
+   // 服务端 socket 监听。
   virtual Api::SysCallIntResult listen(int backlog) PURE;
 
   /**
@@ -198,11 +212,13 @@ public:
    * @return a Api::SysCallIntResult with rc_ = 0 for success and rc_ = -1 for failure. If the call
    *   is successful, errno_ shouldn't be used.
    */
+   // 有点客户端 socket connect 与服务端建立连接的味道
   virtual Api::SysCallIntResult connect(const Address::InstanceConstSharedPtr address) PURE;
 
   /**
    * @see MSDN WSAIoctl. Controls the mode of a socket.
    */
+   // 控制 socket 的模式
   virtual Api::SysCallIntResult ioctl(unsigned long control_code, void* in_buffer,
                                       unsigned long in_buffer_len, void* out_buffer,
                                       unsigned long out_buffer_len,

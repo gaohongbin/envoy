@@ -103,6 +103,7 @@ public:
 
 private:
   RoleBasedAccessControlFilterConfigSharedPtr config_;
+  // filterManager 中赋值 ActiveStreamDecoderFilter
   Http::StreamDecoderFilterCallbacks* callbacks_{};
 };
 

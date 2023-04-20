@@ -11,6 +11,8 @@ namespace Extensions {
 namespace NetworkFilters {
 namespace RocketmqProxy {
 
+// 这个是针对 RocketMQ request 的一些元信息的抽取
+// 可以联想到 meta-protocol-proxy 中的 metadata
 class MessageMetadata {
 public:
   MessageMetadata() = default;

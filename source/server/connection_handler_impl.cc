@@ -156,6 +156,7 @@ ConnectionHandlerImpl::findActiveListenerByTag(uint64_t listener_tag) {
   return absl::nullopt;
 }
 
+// 通过 tag 进行负载均衡
 Network::BalancedConnectionHandlerOptRef
 ConnectionHandlerImpl::getBalancedHandlerByTag(uint64_t listener_tag) {
   auto active_listener = findActiveListenerByTag(listener_tag);
@@ -168,11 +169,13 @@ ConnectionHandlerImpl::getBalancedHandlerByTag(uint64_t listener_tag) {
   return absl::nullopt;
 }
 
+// 通过 address 进行负载均衡
 Network::BalancedConnectionHandlerOptRef
 ConnectionHandlerImpl::getBalancedHandlerByAddress(const Network::Address::Instance& address) {
   // This is a linear operation, may need to add a map<address, listener> to improve performance.
   // However, linear performance might be adequate since the number of listeners is small.
   // We do not return stopped listeners.
+  // 先查询具体 IP
   auto listener_it =
       std::find_if(listeners_.begin(), listeners_.end(),
                    [&address](std::pair<Network::Address::InstanceConstSharedPtr,
@@ -190,6 +193,7 @@ ConnectionHandlerImpl::getBalancedHandlerByAddress(const Network::Address::Insta
 
   // Otherwise, we need to look for the wild card match, i.e., 0.0.0.0:[address_port].
   // We do not return stopped listeners.
+  // 再看是不是可以获取到 wild IP
   // TODO(wattli): consolidate with previous search for more efficiency.
   listener_it =
       std::find_if(listeners_.begin(), listeners_.end(),

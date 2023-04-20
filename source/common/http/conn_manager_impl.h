@@ -59,6 +59,10 @@ namespace Http {
  */
  // 注意 ServerConnectionCallbacks 是在 HTTP namespace 下, 
  // Network::ConnectionCallbacks 则是在 Network namespace 下, 两个是不同维度的。
+
+// Http::ConnectionManagerImpl是一个Network::ReadFilter。
+// 在Envoy里面，有Network::WriteFilter和Network::ReadFilter，其中从Downstream发送到Upstream的使用Network::ReadFilter对网络包进行处理，
+// 反方向的是使用Network::WriteFilter。
 class ConnectionManagerImpl : Logger::Loggable<Logger::Id::http>,
                               public Network::ReadFilter,
                               public ServerConnectionCallbacks,
@@ -100,6 +104,7 @@ public:
   void onGoAway(GoAwayErrorCode error_code) override;
 
   // Http::ServerConnectionCallbacks
+  // 因为 ConnectionManagerImpl 继承了 ServerConnectionCallbacks, 这个方法就是 ServerConnectionCallbacks 的回调方法, 当有新的 request 到达时调用
   RequestDecoder& newStream(ResponseEncoder& response_encoder,
                             bool is_internally_created = false) override;
 
@@ -157,6 +162,7 @@ private:
    */
   // 封装连接上的单个活动流。这些是完整的请求/响应对或推送。
   // ActiveStream 既封装了对 request 的 decode操作, 也封装了对 rsp 的 encode 操作
+  // 每个 ActiveStream 包含一个 filter_manager_。
   struct ActiveStream final : LinkedObject<ActiveStream>,
                               public Event::DeferredDeletable,
                               public StreamCallbacks,

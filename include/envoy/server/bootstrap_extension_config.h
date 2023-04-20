@@ -12,6 +12,7 @@ namespace Server {
 /**
  * Parent class for bootstrap extensions.
  */
+ // 启动扩展
 class BootstrapExtension {
 public:
   virtual ~BootstrapExtension() = default;

@@ -82,6 +82,7 @@ private:
 /**
  * The scoped routing configuration.
  */
+ // 作用域路由配置
 // 这个 ScopedConfig 返回的是 ConfigConstSharedPtr
 // ConfigConstSharedPtr 的 route 方法返回的是具体 routeEntry
 class ScopedConfig : public Envoy::Config::ConfigProvider::Config {

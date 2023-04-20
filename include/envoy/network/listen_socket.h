@@ -19,6 +19,8 @@
 namespace Envoy {
 namespace Network {
 
+
+// 你姥姥, 这文件名起的
 /**
  * A socket passed to a connection. For server connections this represents the accepted socket, and
  * for client connections this represents the socket being connected to a remote address.
@@ -26,11 +28,16 @@ namespace Network {
  * TODO(jrajahalme): Hide internals (e.g., fd) from listener filters by providing callbacks filters
  * may need (set/getsockopt(), peek(), recv(), etc.)
  */
+
+ // 传递给 connection 的 socket。
+ // 对于 server connections 连接，这代表 accepted socket
+ // 对于 client connections，这代表套要执行 connect 去连接远端的 socket.
 class ConnectionSocket : public virtual Socket, public virtual ScopeTrackedObject {
 public:
   /**
    * Set detected transport protocol (e.g. RAW_BUFFER, TLS).
    */
+   // 设置检测到的传输协议
   virtual void setDetectedTransportProtocol(absl::string_view protocol) PURE;
 
   /**

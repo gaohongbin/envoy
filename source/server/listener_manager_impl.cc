@@ -266,6 +266,7 @@ ListenerManagerImpl::ListenerManagerImpl(Instance& server,
       config_tracker_entry_(server.admin().getConfigTracker().add(
           "listeners", [this] { return dumpListenerConfigs(); })),
       enable_dispatcher_stats_(enable_dispatcher_stats) {
+      // 根据配置的核数, 创建多个 worker
   for (uint32_t i = 0; i < server.options().concurrency(); i++) {
     workers_.emplace_back(
         worker_factory.createWorker(i, server.overloadManager(), absl::StrCat("worker_", i)));
@@ -1079,6 +1080,8 @@ Network::DrainableFilterChainSharedPtr ListenerFilterChainFactoryBuilder::buildF
   std::vector<std::string> server_names(filter_chain.filter_chain_match().server_names().begin(),
                                         filter_chain.filter_chain_match().server_names().end());
 
+  // 初始化了 filterChain
+  // 这里面的 createNetworkFilterFactoryList 返回的 callback 也只是被保存了起来。
   auto filter_chain_res = std::make_shared<FilterChainImpl>(
       config_factory.createTransportSocketFactory(*message, factory_context_,
                                                   std::move(server_names)),

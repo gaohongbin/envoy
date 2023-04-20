@@ -106,6 +106,7 @@ public:
   const std::chrono::milliseconds listener_filters_timeout_;
   const bool continue_on_listener_filters_timeout_;
   std::list<ActiveTcpSocketPtr> sockets_;
+  // 绑定相同 filterChain 的 ActiveConnectionsPtr 组成的 map
   absl::flat_hash_map<const Network::FilterChain*, ActiveConnectionsPtr> connections_by_context_;
 
   // The number of connections currently active on this listener. This is typically used for
@@ -117,6 +118,7 @@ public:
 /**
  * Wrapper for a group of active connections which are attached to the same filter chain context.
  */
+ // ActiveConnections 本身就是针对同绑定相同 filter chain 而专门定义的结构体
 class ActiveConnections : public Event::DeferredDeletable {
 public:
   ActiveConnections(ActiveTcpListener& listener, const Network::FilterChain& filter_chain);

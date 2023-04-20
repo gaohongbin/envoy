@@ -527,16 +527,19 @@ bool RouteEntryImplBase::matchRoute(const Http::RequestHeaderMap& headers,
                                     uint64_t random_value) const {
   bool matches = true;
 
+  // 处理 runtime_fraction 的, 我们先跳过
   matches &= evaluateRuntimeMatch(random_value);
   if (!matches) {
     // No need to waste further cycles calculating a route match.
     return false;
   }
 
+  // 判断是否为 grpc
   if (match_grpc_) {
     matches &= Grpc::Common::isGrpcRequestHeaders(headers);
   }
 
+  // 如果指定了 header, 计算 header 是否匹配
   matches &= Http::HeaderUtility::matchHeaders(headers, config_headers_);
   if (!config_query_parameters_.empty()) {
     Http::Utility::QueryParams query_parameters =
@@ -544,6 +547,7 @@ bool RouteEntryImplBase::matchRoute(const Http::RequestHeaderMap& headers,
     matches &= ConfigUtility::matchQueryParams(query_parameters, config_query_parameters_);
   }
 
+  // 证书是否匹配
   matches &= evaluateTlsContextMatch(stream_info);
 
   return matches;
@@ -940,10 +944,12 @@ const RouteEntry* RouteEntryImplBase::routeEntry() const {
   }
 }
 
+// 选择 cluster
 RouteConstSharedPtr RouteEntryImplBase::clusterEntry(const Http::HeaderMap& headers,
                                                      uint64_t random_value) const {
   // Gets the route object chosen from the list of weighted clusters
   // (if there is one) or returns self.
+  // 如果非 weightedCluster
   if (weighted_clusters_.empty()) {
     if (!cluster_name_.empty() || isDirectResponse()) {
       return shared_from_this();
@@ -1062,8 +1068,10 @@ PrefixRouteEntryImpl::currentUrlPathAfterRewrite(const Http::RequestHeaderMap& h
 RouteConstSharedPtr PrefixRouteEntryImpl::matches(const Http::RequestHeaderMap& headers,
                                                   const StreamInfo::StreamInfo& stream_info,
                                                   uint64_t random_value) const {
+  // if 里面是判断条件
   if (RouteEntryImplBase::matchRoute(headers, stream_info, random_value) &&
       path_matcher_->match(headers.getPathValue())) {
+    // 选择具体 Cluster, 组装成 RouteEntry
     return clusterEntry(headers, random_value);
   }
   return nullptr;
@@ -1339,24 +1347,29 @@ RouteMatcher::RouteMatcher(const envoy::config::route::v3::RouteConfiguration& r
     VirtualHostSharedPtr virtual_host(new VirtualHostImpl(virtual_host_config, global_route_config,
                                                           factory_context, *vhost_scope_, validator,
                                                           validation_clusters));
+    // 这里会进行遍历, 针对每个 domain 都进行处理
     for (const std::string& domain_name : virtual_host_config.domains()) {
       const std::string domain = Http::LowerCaseString(domain_name).get();
       bool duplicate_found = false;
       if ("*" == domain) {
+        // 通用域名
         if (default_virtual_host_) {
           throw EnvoyException(fmt::format("Only a single wildcard domain is permitted in route {}",
                                            route_config.name()));
         }
         default_virtual_host_ = virtual_host;
       } else if (!domain.empty() && '*' == domain[0]) {
+        // virtual host 的 域名 中有通配符, * 在最前面
         duplicate_found = !wildcard_virtual_host_suffixes_[domain.size() - 1]
                                .emplace(domain.substr(1), virtual_host)
                                .second;
       } else if (!domain.empty() && '*' == domain[domain.size() - 1]) {
+        // virtual host 的 域名 中有通配符, * 在最后面
         duplicate_found = !wildcard_virtual_host_prefixes_[domain.size() - 1]
                                .emplace(domain.substr(0, domain.size() - 1), virtual_host)
                                .second;
       } else {
+        // 没有通配符的 virtual host
         duplicate_found = !virtual_hosts_.emplace(domain, virtual_host).second;
       }
       if (duplicate_found) {
@@ -1368,18 +1381,21 @@ RouteMatcher::RouteMatcher(const envoy::config::route::v3::RouteConfiguration& r
   }
 }
 
+// VirtualHost 通过 header 获取上游集群 Route
 RouteConstSharedPtr VirtualHostImpl::getRouteFromEntries(const RouteCallback& cb,
                                                          const Http::RequestHeaderMap& headers,
                                                          const StreamInfo::StreamInfo& stream_info,
                                                          uint64_t random_value) const {
   // No x-forwarded-proto header. This normally only happens when ActiveStream::decodeHeaders
   // bails early (as it rejects a request), so there is no routing is going to happen anyway.
+  // 获取 x-forwarded-proto, 如果获取不到, 则不进行路由。
   const auto* forwarded_proto_header = headers.ForwardedProto();
   if (forwarded_proto_header == nullptr) {
     return nullptr;
   }
 
   // First check for ssl redirect.
+  // 第一次检查 ssl 重定向
   if (ssl_requirements_ == SslRequirements::All && forwarded_proto_header->value() != "https") {
     return SSL_REDIRECT_ROUTE;
   } else if (ssl_requirements_ == SslRequirements::ExternalOnly &&
@@ -1389,11 +1405,14 @@ RouteConstSharedPtr VirtualHostImpl::getRouteFromEntries(const RouteCallback& cb
   }
 
   // Check for a route that matches the request.
+  // 遍历所有的 routes, 获取符合 request 的 route
   for (auto route = routes_.begin(); route != routes_.end(); ++route) {
+    // 如果只有域名, 没有 Path, http 这也有吗？
     if (!headers.Path() && !(*route)->supportsPathlessHeaders()) {
       continue;
     }
 
+    // 这里是真正选择 route, 第一条符合的 route 就直接使用了。
     RouteConstSharedPtr route_entry = (*route)->matches(headers, stream_info, random_value);
     if (nullptr == route_entry) {
       continue;
@@ -1420,14 +1439,17 @@ RouteConstSharedPtr VirtualHostImpl::getRouteFromEntries(const RouteCallback& cb
   return nullptr;
 }
 
+// 通过 domain 选择 VirtualHostImpl
 const VirtualHostImpl* RouteMatcher::findVirtualHost(const Http::RequestHeaderMap& headers) const {
   // Fast path the case where we only have a default virtual host.
+  // 获取全匹配 * 的路由规则
   if (virtual_hosts_.empty() && wildcard_virtual_host_suffixes_.empty() &&
       wildcard_virtual_host_prefixes_.empty()) {
     return default_virtual_host_.get();
   }
 
   // There may be no authority in early reply paths in the HTTP connection manager.
+  // 获取域名
   if (headers.Host() == nullptr) {
     return nullptr;
   }
@@ -1437,9 +1459,11 @@ const VirtualHostImpl* RouteMatcher::findVirtualHost(const Http::RequestHeaderMa
   // Lower-case the value of the host header, as hostnames are case insensitive.
   const std::string host = absl::AsciiStrToLower(headers.getHostValue());
   const auto& iter = virtual_hosts_.find(host);
+  // 先获取域名能够精确匹配的
   if (iter != virtual_hosts_.end()) {
     return iter->second.get();
   }
+  // 再获取域名中有通配符的, 并且 * 在最前面
   if (!wildcard_virtual_host_suffixes_.empty()) {
     const VirtualHostImpl* vhost = findWildcardVirtualHost(
         host, wildcard_virtual_host_suffixes_,
@@ -1448,6 +1472,7 @@ const VirtualHostImpl* RouteMatcher::findVirtualHost(const Http::RequestHeaderMa
       return vhost;
     }
   }
+  // 再获取域名中有通配符的, 并且 * 在最后面
   if (!wildcard_virtual_host_prefixes_.empty()) {
     const VirtualHostImpl* vhost = findWildcardVirtualHost(
         host, wildcard_virtual_host_prefixes_,
@@ -1456,6 +1481,7 @@ const VirtualHostImpl* RouteMatcher::findVirtualHost(const Http::RequestHeaderMa
       return vhost;
     }
   }
+  // 最后返回默认
   return default_virtual_host_.get();
 }
 
@@ -1464,8 +1490,10 @@ RouteConstSharedPtr RouteMatcher::route(const RouteCallback& cb,
                                         const StreamInfo::StreamInfo& stream_info,
                                         uint64_t random_value) const {
 
+  // 通过 domain 获取 VirtualHost
   const VirtualHostImpl* virtual_host = findVirtualHost(headers);
   if (virtual_host) {
+    // 再根据 match 条件选择 routeEntry
     return virtual_host->getRouteFromEntries(cb, headers, stream_info, random_value);
   } else {
     return nullptr;
@@ -1515,6 +1543,8 @@ ConfigImpl::ConfigImpl(const envoy::config::route::v3::RouteConfiguration& confi
                                                      config.response_headers_to_remove());
 }
 
+// ConnectionManagerImpl 中调用 snapped_route_config_->route()
+// 就是调用该方法
 RouteConstSharedPtr ConfigImpl::route(const RouteCallback& cb,
                                       const Http::RequestHeaderMap& headers,
                                       const StreamInfo::StreamInfo& stream_info,

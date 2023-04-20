@@ -11,6 +11,10 @@ namespace Envoy {
 namespace Extensions {
 namespace NetworkFilters {
 namespace RocketmqProxy {
+
+// 这里定义了三个结构体 QueueData, BrokerData 和 TopicRouteData
+// 这些结构体在 active_message.cc 中有使用。
+
 class QueueData {
 public:
   QueueData(const std::string& broker_name, int32_t read_queue_num, int32_t write_queue_num,

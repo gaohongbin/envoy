@@ -29,6 +29,9 @@ namespace Config {
  * obtain a reference to the underlying config proto and version (applicable only to dynamic config
  * providers).
  */
+ // configuration 的提供者, 不仅可以提供静态数据, 也可以提供动态数据。
+ // ConfigProvider 是一个抽象层，更高级别的组件（例如 HttpConnectionManager、Listener 等）可以利用它来与 Envoy 的配置机制进行交互。
+//  该接口的实现建立在较低级别的抽象之上，例如 Envoy::Config::Subscription 和 Envoy::Config::SubscriptionCallbacks。
 class ConfigProvider {
 public:
   /**
@@ -62,6 +65,7 @@ public:
   /**
    * Stores the config proto as well as the associated version.
    */
+   // 存储配置原型以及关联的版本。
   template <typename P> struct ConfigProtoInfo {
     const P& config_proto_;
 

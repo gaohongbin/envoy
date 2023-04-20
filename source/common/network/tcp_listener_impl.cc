@@ -53,6 +53,7 @@ void TcpListenerImpl::onSocketEvent(short flags) {
     sockaddr_storage remote_addr;
     socklen_t remote_addr_len = sizeof(remote_addr);
 
+    // 这里创建了新的 IoHandlePtr, 可以理解为网络编程中的 accept
     IoHandlePtr io_handle =
         socket_->ioHandle().accept(reinterpret_cast<sockaddr*>(&remote_addr), &remote_addr_len);
     if (io_handle == nullptr) {
@@ -99,6 +100,7 @@ void TcpListenerImpl::setupServerSocket(Event::DispatcherImpl& dispatcher, Socke
 
   // Although onSocketEvent drains to completion, use level triggered mode to avoid potential
   // loss of the trigger due to transient accept errors.
+  // 这里使用水平触发, 和 Read, 事件分发是不是这里定义的
   socket.ioHandle().initializeFileEvent(
       dispatcher, [this](uint32_t events) -> void { onSocketEvent(events); },
       Event::FileTriggerType::Level, Event::FileReadyType::Read);
@@ -110,6 +112,8 @@ void TcpListenerImpl::setupServerSocket(Event::DispatcherImpl& dispatcher, Socke
   }
 }
 
+// 初始化 TcpListenerImpl
+// 这里面传了一个 socket, 这个 socket 可以理解为我们写网络编程的那个服务端 socket
 TcpListenerImpl::TcpListenerImpl(Event::DispatcherImpl& dispatcher, Random::RandomGenerator& random,
                                  SocketSharedPtr socket, TcpListenerCallbacks& cb,
                                  bool bind_to_port, uint32_t backlog_size)

@@ -37,6 +37,7 @@ enum class FilterStatus {
 /**
  * Callbacks used by individual filter instances to communicate with the filter manager.
  */
+ // 主要用于 filter 和 filter manager 交互
 class NetworkFilterCallbacks {
 public:
   virtual ~NetworkFilterCallbacks() = default;

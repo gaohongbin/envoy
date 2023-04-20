@@ -70,6 +70,7 @@ MainCommonBase::MainCommonBase(const Server::Options& options, Event::TimeSystem
   switch (options_.mode()) {
   case Server::Mode::InitOnly:
   case Server::Mode::Serve: {
+    // TODO 这是热启动相关的吗
     configureHotRestarter(*random_generator);
 
     tls_ = std::make_unique<ThreadLocal::InstanceImpl>();
@@ -206,6 +207,19 @@ MainCommon::MainCommon(const std::vector<std::string>& args)
             nullptr) {}
 
 // MainCommon 的初始化逻辑, 主要逻辑是空的, 但是初始化两个变量, options_ 和 base_
+// 找到一个 envoy 的启动参数如下:
+//   - args:
+//    - proxy
+//    - router
+//    - --domain
+//    - istio-work-test.svc.cluster.local
+//    - --proxyLogLevel=warning
+//    - --proxyComponentLogLevel=misc:error
+//    - --log_output_level=default:info
+//    - --serviceCluster
+//    - envoy-gw-dstest
+
+// TODO prod_component_factory_ 什么时候初始化的呢？
 MainCommon::MainCommon(int argc, const char* const* argv)
     : options_(argc, argv, &MainCommon::hotRestartVersion, spdlog::level::info),
       base_(options_, real_time_system_, default_listener_hooks_, prod_component_factory_,

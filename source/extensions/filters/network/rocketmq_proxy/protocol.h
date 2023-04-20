@@ -22,6 +22,7 @@ namespace RocketmqProxy {
 /**
  * Retry topic prefix
  */
+ // RocketMQ 的 retry 逻辑可以了解一下, 这里我们先跳过
 constexpr absl::string_view RetryTopicPrefix = "%RETRY%";
 
 /**
@@ -29,6 +30,9 @@ constexpr absl::string_view RetryTopicPrefix = "%RETRY%";
  * terms of functionality. But they do differ in encoding scheme. See SendMessageRequestHeader
  * encode/decode functions for specific differences.
  */
+ // RocketMQ 支持两种版本的消息发送协议。
+ // 这两个版本在功能方面是相同的。但它们在编码方案上确实不同。
+ // 具体区别见 SendMessageRequestHeader 编码/解码函数。
 enum class SendMessageRequestVersion : uint32_t {
   V1 = 0,
   V2 = 1,
@@ -43,6 +47,10 @@ enum class SendMessageRequestVersion : uint32_t {
  * target-broker-id fields, which are helpful if the associated remoting command should be delivered
  * to specific host according to the semantics of the previous command.
  */
+ // CommandCustomHeader 理解为用户自定义的 header 信息。
+ // CommandCustomHeader 其实对应的是 RocketMQ 中的 extFields 对应的字段基类。
+ // CommandCustomHeader 和 RemotingCommand 结合使用, 来定义 RocketMQ 的所有 request 和 response。
+
 class CommandCustomHeader {
 public:
   CommandCustomHeader() = default;
@@ -82,6 +90,8 @@ using CommandCustomHeaderPtr = CommandCustomHeader*;
  * This class extends from CommandCustomHeader, adding a commonly used field by various custom
  * command headers which participate the process of request routing.
  */
+ // 此类扩展自 CommandCustomHeader，添加了参与请求路由过程的各种自定义命令标头的常用字段。
+
 class RoutingCommandCustomHeader : public CommandCustomHeader {
 public:
   virtual const std::string& topic() const { return topic_; }
@@ -95,6 +105,10 @@ protected:
 /**
  * This class defines basic request/response forms used by RocketMQ among all its components.
  */
+ // RemotingCommand 定义了 RocketMQ 在其所有组件中使用的基本请求/响应形式。
+ // 然后针对 request 和 response 不同的 extFields 字段内容, 又额外定义了 CommandCustomHeader 进行支持。
+ // 所以不同的 code 对应的结构体不同, 但都继承了 CommandCustomHeader。
+ // 例如: SendMessageRequestHeader, SendMessageResponseHeader 等。
 class RemotingCommand {
 public:
   RemotingCommand() : RemotingCommand(0, 0, 0) {}
@@ -250,6 +264,8 @@ enum class ResponseCode : uint32_t {
 /**
  * Custom command header for sending messages.
  */
+ // SendMessageRequestHeader 是对 send message 的 extFields 的定义
+ // 但是继承了 RoutingCommandCustomHeader, 说明其可能参与路由。
 class SendMessageRequestHeader : public RoutingCommandCustomHeader,
                                  Logger::Loggable<Logger::Id::rocketmq> {
 public:
@@ -328,6 +344,8 @@ private:
 /**
  * Custom command header to respond to a send-message-request.
  */
+ // SendMessageResponseHeader 是对发送 message 后 broker 返回 respone 的 extFields 的封装。
+ // 注意其继承的是 CommandCustomHeader, 因为是 rsp 当然不进行路由喽。
 class SendMessageResponseHeader : public CommandCustomHeader {
 public:
   SendMessageResponseHeader() = default;
@@ -375,6 +393,8 @@ private:
  *
  * This header is kept for compatible purpose only.
  */
+ // 经典 RocketMQ 需要每个代理的已知地址才能使用。为了解析地址，客户端 SDK 使用此命令标头来查询名称服务器。
+ // 该结构体被保留主要是为了兼容
 class GetRouteInfoRequestHeader : public RoutingCommandCustomHeader {
 public:
   void encode(ProtobufWkt::Value& root) override;
@@ -395,6 +415,12 @@ public:
  * consuming progress management. This models brings about some extra workload to broker side, but
  * it fits Envoy well.
  */
+ // 当 client 希望使用存储在 broker 的消息时，它会向 broker 发送弹出命令。
+ // broker 会向 client 发送一批消息。同时，broker 在配置的时间段内保持批次不可见，等待来自 client 端的确认。
+ // 如果在规定的时间内, client 返回了 ack 消息, 则 broker 将消息标记为已消费。 否则之前的一批消息重新被标记为可见, 并可供其他 client 消费使用。
+ // 通过这种方法，我们实现了无状态的消息拉取，与经典的基于偏移量的消费进度管理相比。这种模型给代理端带来了一些额外的工作量，但它很适合 Envoy。
+
+// PopMessageRequestHeader 继承了 RoutingCommandCustomHeader 可能用于 route。
 class PopMessageRequestHeader : public RoutingCommandCustomHeader {
 public:
   friend class Decoder;
@@ -558,6 +584,8 @@ private:
 /**
  * When a client shuts down gracefully, it notifies broker(now envoy) this event.
  */
+ // 当 client 关闭时, 会通过该消息体通知 broker. 但在开启 sidecar 后, RocketMQ 的形态变成如下文档中的样子
+ // https://developer.aliyun.com/article/783491?utm_content=g_1000262524
 class UnregisterClientRequestHeader : public CommandCustomHeader {
 public:
   void encode(ProtobufWkt::Value& root) override;
@@ -655,6 +683,7 @@ public:
  * Directive to ensure entailing ack requests are routed to the same broker host where pop
  * requests are made.
  */
+ // 确保将 ack request 路由到发出 pop request 的同一 broker 的指令。
 struct AckMessageDirective {
 
   AckMessageDirective(absl::string_view broker_name, int32_t broker_id, MonotonicTime create_time)

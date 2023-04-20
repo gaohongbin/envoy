@@ -61,6 +61,41 @@ StaticRouteConfigProviderImpl::~StaticRouteConfigProviderImpl() {
 }
 
 // TODO(htuch): If support for multiple clusters is added per #1170 cluster_name_
+// "dynamicListeners": [
+//     {
+//         "name": "0.0.0.0_80",
+//         "activeState": {
+//             "listener": {
+//                 "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+//                 "name": "0.0.0.0_80",
+//                 "address": {
+//                     "socketAddress": {
+//                         "address": "0.0.0.0",
+//                         "portValue": 80
+//                     }
+//                 },
+//                 "filterChains": [
+//                     {
+//                         "filters": [
+//                             {
+//                                 "name": "envoy.filters.network.http_connection_manager",
+//                                 "typedConfig": {
+//                                     "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+//                                     "statPrefix": "outbound_0.0.0.0_80",
+//                                     "rds": {
+//                                         "configSource": {
+//                                             "ads": {
+
+//                                             },
+//                                             "initialFetchTimeout": "0s",
+//                                             "resourceApiVersion": "V3"
+//                                         },
+//                                         "routeConfigName": "http.80"
+//                                     },
+//                                     "httpFilters": [
+
+// 上面是 tcloud-v2(prod) 的 80 端口 Listener 的相关配置, 我们看上面 rds 相关内容, 每个 listener 的 HttpConnectionManager 的 rds 的 routeConfigName 是不一样的
+// 所以不同的端口处理逻辑不一样。
 RdsRouteConfigSubscription::RdsRouteConfigSubscription(
     const envoy::extensions::filters::network::http_connection_manager::v3::Rds& rds,
     const uint64_t manager_identifier, Server::Configuration::ServerFactoryContext& factory_context,
@@ -103,12 +138,14 @@ RdsRouteConfigSubscription::~RdsRouteConfigSubscription() {
   route_config_provider_manager_.dynamic_route_config_providers_.erase(manager_identifier_);
 }
 
+// 当 pilot 下发新的 RDS 时, 调用该方法进行更新
 void RdsRouteConfigSubscription::onConfigUpdate(
     const std::vector<Envoy::Config::DecodedResourceRef>& resources,
     const std::string& version_info) {
   if (!validateUpdateSize(resources.size())) {
     return;
   }
+  // 可以查看 config_dump 下发的 envoy.config.route.v3.RouteConfiguration
   const auto& route_config = dynamic_cast<const envoy::config::route::v3::RouteConfiguration&>(
       resources[0].get().resource());
   if (route_config.name() != route_config_name_) {

@@ -61,11 +61,14 @@ private:
    *
    * If there are connections which can be returned immediately, this handle is assigned as nullptr.
    */
+  // 在从上游连接池请求连接时，可能会在此时没有连接可用时分配此句柄。我们可以通过此句柄取消请求。
+  // 如果有可以立即返回的连接，则将此句柄分配为 nullptr。
   Tcp::ConnectionPool::Cancellable* handle_;
   Upstream::HostDescriptionConstSharedPtr upstream_host_;
   ActiveMessage* active_message_;
   Upstream::ClusterInfoConstSharedPtr cluster_info_;
   UpstreamRequestPtr upstream_request_;
+  // 默认空值
   const RouteEntry* route_entry_{};
 };
 } // namespace Router

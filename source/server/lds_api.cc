@@ -29,6 +29,7 @@ LdsApiImpl::LdsApiImpl(const envoy::config::core::v3::ConfigSource& lds_config,
       listener_manager_(lm), scope_(scope.createScope("listener_manager.lds.")), cm_(cm),
       init_target_("LDS", [this]() { subscription_->start({}); }) {
   const auto resource_name = getResourceName();
+  // 订阅 LDS 的更新, 如果 LDS 发生更新, 则调用 onConfigUpdate 方法。
   if (lds_resources_locator == nullptr) {
     subscription_ = cm.subscriptionFactory().subscriptionFromConfigSource(
         lds_config, Grpc::Common::typeUrl(resource_name), *scope_, *this, resource_decoder_, {});
@@ -39,6 +40,7 @@ LdsApiImpl::LdsApiImpl(const envoy::config::core::v3::ConfigSource& lds_config,
   init_manager.add(init_target_);
 }
 
+// 在 LDS 更新的时候, 会调用该方法, 该方法会调用 listener_manager_.addOrUpdateListener 对 listener 进行更新
 void LdsApiImpl::onConfigUpdate(const std::vector<Config::DecodedResourceRef>& added_resources,
                                 const Protobuf::RepeatedPtrField<std::string>& removed_resources,
                                 const std::string& system_version_info) {
@@ -74,6 +76,7 @@ void LdsApiImpl::onConfigUpdate(const std::vector<Config::DecodedResourceRef>& a
         // applied.
         throw EnvoyException(fmt::format("duplicate listener {} found", listener.name()));
       }
+      // 将新的 listener 加入到 listener_manager 中
       if (listener_manager_.addOrUpdateListener(listener, resource.get().version(), true)) {
         ENVOY_LOG(info, "lds: add/update listener '{}'", listener.name());
         any_applied = true;
@@ -105,11 +108,14 @@ void LdsApiImpl::onConfigUpdate(const std::vector<Config::DecodedResourceRef>& r
                                 const std::string& version_info) {
   // We need to keep track of which listeners need to remove.
   // Specifically, it's [listeners we currently have] - [listeners found in the response].
+  // 获取了 listener_manager 下所有的 WARMING 和 ACTIVE 的 listener, 并加入到 listeners_to_remove, 后面会进行删除.
+  // 所以每次 LDS 更新, 都会将原来的 listener 删除, 然后添加新的。
   absl::node_hash_set<std::string> listeners_to_remove;
   for (const auto& listener :
        listener_manager_.listeners(ListenerManager::WARMING | ListenerManager::ACTIVE)) {
     listeners_to_remove.insert(listener.get().name());
   }
+  // 如果新下发的配置中有原来的 某个 listener, 则将其从要删除的列表中剔除。
   for (const auto& resource : resources) {
     // Remove its name from our delta removed pile.
     listeners_to_remove.erase(resource.get().name());

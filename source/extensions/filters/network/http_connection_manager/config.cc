@@ -146,6 +146,8 @@ SINGLETON_MANAGER_REGISTRATION(scoped_routes_config_provider_manager);
 SINGLETON_MANAGER_REGISTRATION(http_tracer_manager);
 SINGLETON_MANAGER_REGISTRATION(filter_config_provider_manager);
 
+// 这里是为了获取单例的实例
+// https://www.zhaohuabing.com/post/2021-08-11-envoy-code/
 Utility::Singletons Utility::createSingletons(Server::Configuration::FactoryContext& context) {
   std::shared_ptr<Http::TlsCachingDateProviderImpl> date_provider =
       context.singletonManager().getTyped<Http::TlsCachingDateProviderImpl>(
@@ -154,6 +156,7 @@ Utility::Singletons Utility::createSingletons(Server::Configuration::FactoryCont
                                                                       context.threadLocal());
           });
 
+  //
   Router::RouteConfigProviderManagerSharedPtr route_config_provider_manager =
       context.singletonManager().getTyped<Router::RouteConfigProviderManager>(
           SINGLETON_MANAGER_REGISTERED_NAME(route_config_provider_manager), [&context] {
@@ -200,6 +203,8 @@ std::shared_ptr<HttpConnectionManagerConfig> Utility::createConfig(
 // HttpConnectionManager 的构造函数 createFilterFactoryFromProtoTyped, 通过 proto 文件进行创建。
 // 可以看到最后, 该方法返回了一个 void 方法, 该方法内部只调用了 filter_manager.addReadFilter
 // 我们现在再去看 filter_manager.addReadFilter 的方法实现, 里面有调用 initializeReadFilterCallbacks
+
+// ProdListenerComponentFactory
 Network::FilterFactoryCb
 HttpConnectionManagerFilterConfigFactory::createFilterFactoryFromProtoTyped(
     const envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&
@@ -210,8 +215,10 @@ HttpConnectionManagerFilterConfigFactory::createFilterFactoryFromProtoTyped(
   } else {
     ENVOY_LOG(debug, "tcloud context.getTcloudMap() is null");
   }
+  // 这里面做了很多事情, 容易忽略
   Utility::Singletons singletons = Utility::createSingletons(context);
 
+  // 这里生成 HttpConnectionManagerConfig
   auto filter_config = Utility::createConfig(
       proto_config, context, *singletons.date_provider_, *singletons.route_config_provider_manager_,
       *singletons.scoped_routes_config_provider_manager_, *singletons.http_tracer_manager_,
@@ -222,12 +229,6 @@ HttpConnectionManagerFilterConfigFactory::createFilterFactoryFromProtoTyped(
   // Keep in mind the lambda capture list **doesn't** determine the destruction order, but it's fine
   // as these captured objects are also global singletons.
   return [singletons, filter_config, &context](Network::FilterManager& filter_manager) -> void {
-//    if (context.getTcloudMap()) {
-//      ENVOY_LOG(debug, "tcloud http_connection_manager config.cc context.getTcloudMap() is not null");
-//    } else {
-//      ENVOY_LOG(debug, "tcloud http_connection_manager config.cc context.getTcloudMap() is null");
-//    }
-
     filter_manager.addReadFilter(Network::ReadFilterSharedPtr{new Http::ConnectionManagerImpl(
         *filter_config, context.drainDecision(), context.api().randomGenerator(),
         context.httpContext(), context.runtime(), context.localInfo(), context.clusterManager(),
@@ -248,6 +249,7 @@ InternalAddressConfig::InternalAddressConfig(
         InternalAddressConfig& config)
     : unix_sockets_(config.unix_sockets()) {}
 
+// 这里面才是关键, 哇塞，东西超多
 HttpConnectionManagerConfig::HttpConnectionManagerConfig(
     const envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&
         config,
@@ -361,11 +363,13 @@ HttpConnectionManagerConfig::HttpConnectionManagerConfig(
 
   // If scoped RDS is enabled, avoid creating a route config provider. Route config providers will
   // be managed by the scoped routing logic instead.
+  // scoped RDS = SRDS, 先不管了，先只管 RDS 好了
   switch (config.route_specifier_case()) {
   case envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager::
       RouteSpecifierCase::kRds:
   case envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager::
       RouteSpecifierCase::kRouteConfig:
+    // 这里面，会创建 RdsRouteConfigSubscription 订阅RDS，然后创建RdsRouteConfigProviderImpl
     route_config_provider_ = Router::RouteConfigProviderUtil::create(
         config, context_.getServerFactoryContext(), context_.messageValidationVisitor(),
         context_.initManager(), stats_prefix_, route_config_provider_manager_);
@@ -750,8 +754,6 @@ const envoy::config::trace::v3::Tracing_Http* HttpConnectionManagerConfig::getPe
   return nullptr;
 }
 
-// 这里是真正的生成 HttpConnectionManager 的地方, initializeReadFilterCallbacks 方法也是这里调用的。
-// 所以 read_callbacks 也是这里传进去的。
 std::function<Http::ApiListenerPtr()>
 HttpConnectionManagerFactory::createHttpConnectionManagerFactoryFromProto(
     const envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&

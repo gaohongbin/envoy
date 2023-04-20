@@ -24,16 +24,19 @@ enum class Mode {
    * Default mode: Regular Envoy serving process. Configs are validated in the normal course of
    * initialization, but if all is well we proceed to serve traffic.
    */
+   // 默认模式：常规 Envoy 服务流程。配置在正常的初始化过程中得到验证，但如果一切顺利，我们将继续为流量提供服务。
   Serve,
 
   /**
    * Validate as much as possible without opening network connections upstream or downstream.
    */
+   // 尽可能在不打开上游或下游网络连接的情况下进行验证。
   Validate,
 
   /**
    * Completely load and initialize the config, and then exit without running the listener loop.
    */
+   // 完全加载并初始化配置，然后在不运行侦听器循环的情况下退出。
   InitOnly,
 
   // TODO(rlazarus): Add a fourth option for "light validation": Mock out access to the filesystem.
@@ -65,6 +68,7 @@ using CommandLineOptionsPtr = std::unique_ptr<envoy::admin::v3::CommandLineOptio
 /**
  * General options for the server.
  */
+ // server option 的基类
 class Options {
 public:
   virtual ~Options() = default;

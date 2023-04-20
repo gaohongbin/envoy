@@ -18,6 +18,8 @@ namespace ConnectionPool {
  * onEvent(Connected) is never triggered since the event always occurs before a ConnectionPool
  * caller is assigned a connection.
  */
+// UpstreamCallbacks 用于连接池上游建立连接后回调，或者上游发送数据时回调。
+//
 class UpstreamCallbacks : public Network::ConnectionCallbacks {
 public:
   ~UpstreamCallbacks() override = default;
@@ -40,6 +42,7 @@ public:
  * The ConnectionState assigned to a connection is automatically destroyed when the connection is
  * closed.
  */
+ // ConnectionState 是跨请求维护的连接状态的基类。
 class ConnectionState {
 public:
   virtual ~ConnectionState() = default;
@@ -51,6 +54,7 @@ using ConnectionStatePtr = std::unique_ptr<ConnectionState>;
  * ConnectionData wraps a ClientConnection allocated to a caller. Open ClientConnections are
  * released back to the pool for re-use when their containing ConnectionData is destroyed.
  */
+// ConnectionData 包装分配给调用者的 ClientConnection
 class ConnectionData {
 public:
   virtual ~ConnectionData() = default;
