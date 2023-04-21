@@ -80,6 +80,7 @@ ConnectionManagerUtility::MutateRequestHeadersResult ConnectionManagerUtility::m
     const LocalInfo::LocalInfo& local_info) {
   // If this is a Upgrade request, do not remove the Connection and Upgrade headers,
   // as we forward them verbatim to the upstream hosts.
+  // 如果这是一个 Upgrade 请求, 则不删除 Connection 和 Upgrade header, 因为需要转发给上游主机操作。
   if (Utility::isUpgrade(request_headers)) {
     if (!Runtime::runtimeFeatureEnabled(
             "envoy.reloadable_features.http_skip_adding_content_length_to_upgrade")) {
@@ -123,21 +124,35 @@ ConnectionManagerUtility::MutateRequestHeadersResult ConnectionManagerUtility::m
   bool allow_trusted_address_checks = false;
   const uint32_t xff_num_trusted_hops = config.xffNumTrustedHops();
 
+  // config useRemoteAddress 这个可以在 pilot 进行环境变量设置
+  // 网关这个字段为 true
   if (config.useRemoteAddress()) {
     allow_trusted_address_checks = request_headers.ForwardedFor() == nullptr;
     // If there are any trusted proxies in front of this Envoy instance (as indicated by
     // the xff_num_trusted_hops configuration option), get the trusted client address
     // from the XFF before we append to XFF.
+    // 从 xff 中获取新人的 client ip
     if (xff_num_trusted_hops > 0) {
       final_remote_address =
           Utility::getLastAddressFromXFF(request_headers, xff_num_trusted_hops - 1).address_;
     }
+    // 支持腾讯 LB
+    if (final_remote_address == nullptr && request_headers.RealIp() != nullptr) {
+      final_remote_address = Network::Utility::parseInternetAddressNoThrow(std::string(request_headers.getRealIpValue()));
+    }
+
+    // 支持 阿里 LB
+    if (final_remote_address == nullptr && request_headers.RemoteIp() != nullptr) {
+      final_remote_address = Network::Utility::parseInternetAddressNoThrow(std::string(request_headers.getRemoteIpValue()));
+    }
+
     // If there aren't any trusted proxies in front of this Envoy instance, or there
     // are but they didn't populate XFF properly, the trusted client address is the
     // source address of the immediate downstream's connection to us.
     if (final_remote_address == nullptr) {
       final_remote_address = connection.connectionInfoProvider().remoteAddress();
     }
+    // 修改 XFF, 将下游 address 加入进去
     if (!config.skipXffAppend()) {
       if (Network::Utility::isLoopbackAddress(
               *connection.connectionInfoProvider().remoteAddress())) {
@@ -148,6 +163,7 @@ ConnectionManagerUtility::MutateRequestHeadersResult ConnectionManagerUtility::m
     }
     // If the prior hop is not a trusted proxy, overwrite any x-forwarded-proto value it set as
     // untrusted. Alternately if no x-forwarded-proto header exists, add one.
+    // 由于 xff_num_trusted_hops 修改了 x-forwarded-proto
     if (xff_num_trusted_hops == 0 || request_headers.ForwardedProto() == nullptr) {
       request_headers.setReferenceForwardedProto(
           connection.ssl() ? Headers::get().SchemeValues.Https : Headers::get().SchemeValues.Http);
@@ -208,6 +224,12 @@ ConnectionManagerUtility::MutateRequestHeadersResult ConnectionManagerUtility::m
   // HUGE WARNING: The way we do this is not optimal but is how it worked "from the beginning" so
   //               we can't change it at this point. In the future we will likely need to add
   //               additional inference modes and make this mode legacy.
+
+  // 确定是内部请求还是外部请求。 符合以下几点均为内部请求。
+  // 1、 有远程表示 /XFF, 而且 XFF 的 header 中必须包含一个 单个 的地址 XFF(X-FORWARDED-FOR)
+  // 2、 单个地址必须是内部地址
+  // 3、 如果配置为不使用远程地址，但没有可用的 XFF 头，即使真正的远程是内部的，请求被认为是外部的
+  // 判断是外部请求还是内部请求
   const bool internal_request =
       allow_trusted_address_checks && final_remote_address != nullptr &&
       config.internalAddressConfig().isInternalAddress(*final_remote_address);
@@ -372,6 +394,7 @@ Tracing::Reason ConnectionManagerUtility::mutateTracingRequestHeader(
   return final_reason;
 }
 
+// x-forward-cert 证书相关
 void ConnectionManagerUtility::mutateXfccRequestHeader(RequestHeaderMap& request_headers,
                                                        Network::Connection& connection,
                                                        ConnectionManagerConfig& config) {

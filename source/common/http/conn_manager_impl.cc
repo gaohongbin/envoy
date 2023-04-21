@@ -1094,6 +1094,8 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
         StreamInfo::FilterState::StateType::ReadOnly, StreamInfo::FilterState::LifeSpan::Request);
   }
 
+  // TODO 如果不是内部创建的请求, 则修改 remoteAddress
+  // 这里可以做一些修改, 注意这里是针对非 本envoy 创建的请求
   if (!state_.is_internally_created_) { // Only sanitize headers on first pass.
     // Modify the downstream remote address depending on configuration and headers.
     const auto mutate_result = ConnectionManagerUtility::mutateRequestHeaders(
