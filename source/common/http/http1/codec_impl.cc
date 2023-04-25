@@ -528,6 +528,7 @@ Status ConnectionImpl::checkMaxHeadersSize() {
 }
 
 bool ConnectionImpl::maybeDirectDispatch(Buffer::Instance& data) {
+  // 只有 upgrad request 才进行 direct dispatch
   if (!handling_upgrade_) {
     // Only direct dispatch for Upgrade requests.
     return false;
@@ -566,14 +567,17 @@ Http::Status ConnectionImpl::dispatch(Buffer::Instance& data) {
   }
 
   // Always resume before dispatch.
+  // dispatch 之前做一次恢复
   parser_->resume();
 
   ssize_t total_parsed = 0;
   if (data.length() > 0) {
     current_dispatching_buffer_ = &data;
     while (data.length() > 0) {
+      // 获取第一块有数据的块
       auto slice = data.frontSlice();
       dispatching_slice_already_drained_ = false;
+      // 处理每个 slice 块。
       auto statusor_parsed = dispatchSlice(static_cast<const char*>(slice.mem_), slice.len_);
       if (!statusor_parsed.ok()) {
         return statusor_parsed.status();
@@ -592,6 +596,7 @@ Http::Status ConnectionImpl::dispatch(Buffer::Instance& data) {
       }
     }
     current_dispatching_buffer_ = nullptr;
+    // 过 filter 进行处理
     dispatchBufferedBody();
   } else {
     auto result = dispatchSlice(nullptr, 0);
@@ -611,6 +616,7 @@ Http::Status ConnectionImpl::dispatch(Buffer::Instance& data) {
 
 Envoy::StatusOr<size_t> ConnectionImpl::dispatchSlice(const char* slice, size_t len) {
   ASSERT(codec_status_.ok() && dispatching_);
+  // 执行 parser_ 的各个步骤
   auto [nread, rc] = parser_->execute(slice, len);
   if (!codec_status_.ok()) {
     return codec_status_;
@@ -1079,6 +1085,7 @@ Envoy::StatusOr<ParserStatus> ServerConnectionImpl::onHeadersCompleteBase() {
     if (parser_->isChunked() ||
         (parser_->contentLength().has_value() && parser_->contentLength().value() > 0) ||
         handling_upgrade_) {
+      // 调用 conn_manager_impl 的 decodeHeaders 方法。
       active_request.request_decoder_->decodeHeaders(std::move(headers), false);
 
       // If the connection has been closed (or is closing) after decoding headers, pause the parser
@@ -1123,6 +1130,7 @@ Status ServerConnectionImpl::onUrl(const char* data, size_t length) {
   return okStatus();
 }
 
+// 这里组中调用了 decodeData
 void ServerConnectionImpl::onBody(Buffer::Instance& data) {
   ASSERT(!deferred_end_stream_headers_);
   if (active_request_.has_value()) {

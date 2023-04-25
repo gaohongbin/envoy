@@ -61,6 +61,7 @@ void FilterManagerImpl::onContinueReading(ActiveReadFilter* filter,
     entry = std::next(filter->entry());
   }
 
+  // upstream_filters_ 就是所有的 read filter.
   for (; entry != upstream_filters_.end(); entry++) {
     if (!(*entry)->filter_) {
       continue;
@@ -73,6 +74,7 @@ void FilterManagerImpl::onContinueReading(ActiveReadFilter* filter,
       }
     }
 
+    // 这个 filter manager  是在 network ns 下面, 所以这个 onData 对应的是 conn_manager_impl 里面的
     StreamBuffer read_buffer = buffer_source.getReadBuffer();
     if (read_buffer.buffer.length() > 0 || read_buffer.end_stream) {
       FilterStatus status = (*entry)->filter_->onData(read_buffer.buffer, read_buffer.end_stream);

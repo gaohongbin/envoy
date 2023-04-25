@@ -345,6 +345,7 @@ private:
   /**
    * Push the accumulated body through the filter pipeline.
    */
+   // 去过 filter 进行处理
   void dispatchBufferedBody();
 
   /**

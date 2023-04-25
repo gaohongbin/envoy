@@ -746,6 +746,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   UpstreamRequestPtr upstream_request =
       std::make_unique<UpstreamRequest>(*this, std::move(generic_conn_pool));
   LinkedList::moveIntoList(std::move(upstream_request), upstream_requests_);
+  // 这里就开始 encodeHeaders 了。
   upstream_requests_.front()->encodeHeaders(end_stream);
   if (end_stream) {
     onRequestComplete();
