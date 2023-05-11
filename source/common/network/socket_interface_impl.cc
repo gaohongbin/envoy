@@ -49,6 +49,7 @@ IoHandlePtr SocketInterfaceImpl::socket(Socket::Type socket_type, Address::Type 
   const Api::SysCallSocketResult result = Api::OsSysCallsSingleton::get().socket(domain, flags, 0);
   RELEASE_ASSERT(SOCKET_VALID(result.rc_),
                  fmt::format("socket(2) failed, got error: {}", errorDetails(result.errno_)));
+  // 这里 io_handle 最终操作的还是 socket
   IoHandlePtr io_handle = makeSocket(result.rc_, socket_v6only, domain);
 
 #if defined(__APPLE__) || defined(WIN32)

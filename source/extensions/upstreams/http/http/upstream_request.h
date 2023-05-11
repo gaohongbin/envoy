@@ -18,6 +18,7 @@ namespace Upstreams {
 namespace Http {
 namespace Http {
 
+// 这个类更像是一个封装, 里面主要是 Envoy::Http::ConnectionPool::Instance
 class HttpConnPool : public Router::GenericConnPool, public Envoy::Http::ConnectionPool::Callbacks {
 public:
   // GenericConnPool

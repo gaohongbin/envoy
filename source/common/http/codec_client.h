@@ -47,6 +47,7 @@ public:
  * This is an HTTP client that multiple stream management and underlying connection management
  * across multiple HTTP codec types.
  */
+ // 这是一个 HTTP 客户端，可以跨多种 HTTP 编解码器类型进行多流管理和底层连接管理。
 class CodecClient : Logger::Loggable<Logger::Id::client>,
                     public Http::ConnectionCallbacks,
                     public Network::ConnectionCallbacks,

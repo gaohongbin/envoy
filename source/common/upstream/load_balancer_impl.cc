@@ -507,6 +507,7 @@ bool ZoneAwareLoadBalancerBase::earlyExitNonLocalityRouting() {
   return false;
 }
 
+// chooseHost 基类方法
 HostConstSharedPtr LoadBalancerBase::chooseHost(LoadBalancerContext* context) {
   HostConstSharedPtr host;
   const size_t max_attempts = context ? context->hostSelectionRetryCount() + 1 : 1;
@@ -871,6 +872,7 @@ HostConstSharedPtr RandomLoadBalancer::peekAnotherHost(LoadBalancerContext* cont
   return peekOrChoose(context, true);
 }
 
+// RandomLoadBalancer 选择 host 的方法
 HostConstSharedPtr RandomLoadBalancer::chooseHostOnce(LoadBalancerContext* context) {
   return peekOrChoose(context, false);
 }

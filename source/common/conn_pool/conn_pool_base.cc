@@ -105,6 +105,7 @@ float ConnPoolImplBase::perUpstreamPreconnectRatio() const {
   }
 }
 
+// 这就是封装了一个循环
 ConnPoolImplBase::ConnectionResult ConnPoolImplBase::tryCreateNewConnections() {
   ConnPoolImplBase::ConnectionResult result;
   // Somewhat arbitrarily cap the number of connections preconnected due to new
@@ -114,6 +115,8 @@ ConnPoolImplBase::ConnectionResult ConnPoolImplBase::tryCreateNewConnections() {
   // many connections are desired when the host becomes healthy again, but
   // overwhelming it with connections is not desirable.
   for (int i = 0; i < 3; ++i) {
+    // 卧槽, 这两个方法不一样
+    // tryCreateNewConnection 默认传一个参数 0
     result = tryCreateNewConnection();
     if (result != ConnectionResult::CreatedNewConnection) {
       break;
@@ -141,6 +144,9 @@ ConnPoolImplBase::tryCreateNewConnection(float global_preconnect_ratio) {
   if (can_create_connection ||
       (ready_clients_.empty() && busy_clients_.empty() && connecting_clients_.empty())) {
     ENVOY_LOG(debug, "creating a new connection");
+    // 初始化一个 ActiveClient
+    // ActiveClient 扮演的是 envoy 去连接上游时的一个管理角色
+    // instantiateActiveClient 是在子类中实现的。
     ActiveClientPtr client = instantiateActiveClient();
     ASSERT(client->state() == ActiveClient::State::CONNECTING);
     ASSERT(std::numeric_limits<uint64_t>::max() - connecting_stream_capacity_ >=
@@ -149,6 +155,7 @@ ConnPoolImplBase::tryCreateNewConnection(float global_preconnect_ratio) {
     // Increase the connecting capacity to reflect the streams this connection can serve.
     state_.incrConnectingAndConnectedStreamCapacity(client->effectiveConcurrentStreamLimit());
     connecting_stream_capacity_ += client->effectiveConcurrentStreamLimit();
+    // 将新创建的 client 根据状态分类管理起来。
     LinkedList::moveIntoList(std::move(client), owningList(client->state()));
     return can_create_connection ? ConnectionResult::CreatedNewConnection
                                  : ConnectionResult::CreatedButRateLimited;
@@ -227,6 +234,7 @@ void ConnPoolImplBase::onStreamClosed(Envoy::ConnectionPool::ActiveClient& clien
 ConnectionPool::Cancellable* ConnPoolImplBase::newStream(AttachContext& context) {
   ASSERT(static_cast<ssize_t>(connecting_stream_capacity_) ==
          connectingCapacity(connecting_clients_)); // O(n) debug check.
+  // 如果 conn_pool 中存在空闲 client
   if (!ready_clients_.empty()) {
     ActiveClient& client = *ready_clients_.front();
     ENVOY_CONN_LOG(debug, "using existing connection", client);
@@ -236,7 +244,9 @@ ConnectionPool::Cancellable* ConnPoolImplBase::newStream(AttachContext& context)
     return nullptr;
   }
 
+  // 如果连接池中不存在空闲的 client
   if (host_->cluster().resourceManager(priority_).pendingRequests().canCreate()) {
+    // 这里的 newPendingStream 是被子类实现的
     ConnectionPool::Cancellable* pending = newPendingStream(context);
     ENVOY_LOG(debug, "trying to create new connection");
     ENVOY_LOG(trace, fmt::format("{}", *this));
@@ -280,6 +290,7 @@ void ConnPoolImplBase::onUpstreamReady() {
   }
 }
 
+// 对 client 进行分类整理
 std::list<ActiveClientPtr>& ConnPoolImplBase::owningList(ActiveClient::State state) {
   switch (state) {
   case ActiveClient::State::CONNECTING:

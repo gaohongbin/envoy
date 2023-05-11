@@ -32,6 +32,8 @@ void HttpConnPool::newStream(GenericConnectionPoolCallbacks* callbacks) {
   // might get deleted inline as well. Only write the returned handle out if it is not nullptr to
   // deal with this case.
   Envoy::Http::ConnectionPool::Cancellable* handle =
+      // 去看 Envoy::Router::UpstreamRequest 的 upstreamToDownstream() 方法, 返回是自身
+      // 这里就需要去看看 Envoy::Http::ConnectionPool::Instance 的 newStream 方法。
       conn_pool_->newStream(callbacks->upstreamToDownstream(), *this);
   if (handle) {
     conn_pool_stream_handle_ = handle;

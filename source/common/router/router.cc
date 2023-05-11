@@ -362,7 +362,6 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   * 在这里做测试, 先往 request 的 header 里面写入固定的泳道名称。 在测试没问题以后, 我们再实现真正的逻辑。
   */
 
-
   absl::string_view traceId = headers.getSw8Value();
   ENVOY_STREAM_LOG(debug, "tcloud router filter envoy get sw8 = {}", *callbacks_, traceId);
   ENVOY_STREAM_LOG(debug, "tcloud router decoding headers:\n{}", *callbacks_, headers);
@@ -416,7 +415,8 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   // against nullptr before calling it), and feed it behavior later if/when we have cluster info
   // headers to append.
   std::function<void(Http::ResponseHeaderMap&)> modify_headers = [](Http::ResponseHeaderMap&) {};
-  
+
+  // response 的 header 中添加 traceId
   modify_headers = [traceId](Http::ResponseHeaderMap& headers) {
       std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(traceId), '-');
       if (sw8Spilts.size() >= 2) {
@@ -598,6 +598,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   if (upstream_options_ && callbacks_->getUpstreamSocketOptions()) {
     Network::Socket::appendOptions(upstream_options_, callbacks_->getUpstreamSocketOptions());
   }
+  // 创建连接池
   std::unique_ptr<GenericConnPool> generic_conn_pool = createConnPool(*cluster);
 
   if (!generic_conn_pool) {
@@ -606,6 +607,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   }
   Upstream::HostDescriptionConstSharedPtr host = generic_conn_pool->host();
 
+  // TODO 这个后面可以开启, 尤其是在泳道
   if (debug_config && debug_config->append_upstream_host_) {
     // The hostname and address will be appended to any local or upstream responses from this point,
     // possibly in addition to the cluster name.
@@ -710,7 +712,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
   // headers.setTcloudLane("dev1");
   // ENVOY_STREAM_LOG(debug, "tcloud router filter envoy set tcloud lane = dev1", *callbacks_);
 
-
+  // 对 header 做一些最终的修改
   route_entry_->finalizeRequestHeaders(headers, callbacks_->streamInfo(),
                                        !config_.suppress_envoy_headers_);
   FilterUtility::setUpstreamScheme(headers,
@@ -766,6 +768,9 @@ Filter::createConnPool(Upstream::ThreadLocalCluster& thread_local_cluster) {
                           cluster_->upstreamConfig().value().DebugString()));
   }
   if (!factory) {
+    // 这玩意在 source/extensions/upstreams/http/generic/config.h 里面定义
+    // 该工厂类, 可以根据传入的参数不同, 返回
+    // Envoy::Extensions::Upstreams::Http::Tcp::TcpConnPool 或者 Envoy::Extensions::Upstreams::Http::Http::HttpConnPool
     factory = &Envoy::Config::Utility::getAndCheckFactoryByName<GenericConnPoolFactory>(
         "envoy.filters.connection_pools.http.generic");
   }
@@ -773,6 +778,7 @@ Filter::createConnPool(Upstream::ThreadLocalCluster& thread_local_cluster) {
   bool should_tcp_proxy = false;
 
   // 先暂时理解为针对特殊情况的处理
+  // TODO 后面了解一下这块内容
   if (route_entry_->connectConfig().has_value()) {
     auto method = downstream_headers_->getMethodValue();
     // CONNECT 和 POST, GET 一样, 是一种特殊的请求方式
@@ -803,6 +809,9 @@ Http::FilterDataStatus Filter::decodeData(Buffer::Instance& data, bool end_strea
   // a backoff timer.
   ASSERT(upstream_requests_.size() <= 1);
 
+  // 这里判断是否要 buffer 缓存,
+  // 判断你条件为是否需要重试，是否需要流量复制，是否需要内部重定向
+  // 这些不影响主流程，我们先关注主流程
   bool buffering = (retry_state_ && retry_state_->enabled()) || !active_shadow_policies_.empty() ||
                    (internal_redirects_with_body_enabled_ && route_entry_ &&
                     route_entry_->internalRedirectPolicy().enabled());

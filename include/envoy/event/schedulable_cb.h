@@ -11,6 +11,7 @@ namespace Event {
 /**
  * Callback wrapper that allows direct scheduling of callbacks in the event loop.
  */
+// 允许在 event loop 中直接安排回调的回调包装器
 class SchedulableCallback {
 public:
   virtual ~SchedulableCallback() = default;
@@ -44,6 +45,7 @@ using SchedulableCallbackPtr = std::unique_ptr<SchedulableCallback>;
 /**
  * SchedulableCallback factory.
  */
+ // 为什么不直接叫 SchedulableCallbackFactory 呢 ？
 class CallbackScheduler {
 public:
   virtual ~CallbackScheduler() = default;

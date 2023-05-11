@@ -10,6 +10,7 @@ namespace Envoy {
 namespace Event {
 
 struct FileReadyType {
+  // 三种 FileEvent
   // File is ready for reading.
   static constexpr uint32_t Read = 0x1;
   // File is ready for writing.
@@ -21,9 +22,11 @@ struct FileReadyType {
 enum class FileTriggerType {
   // See @man 7 epoll(7)
   // They are used on all platforms for DNS and TCP listeners.
+  // 水平触发
   Level,
   // See @man 7 epoll(7)
   // They are used on all platforms that support Edge triggering as the default trigger type.
+  // 边缘触发
   Edge,
   // These are synthetic edge events managed by Envoy. They are based on level events and when they
   // are activated they are immediately disabled. This makes them behave like Edge events. Then it
@@ -33,6 +36,7 @@ enum class FileTriggerType {
   // Their main application in Envoy is for Win32 which does not support edge-triggered events. They
   // should be used in Win32 instead of level events. They can only be used in platforms where
   // `PlatformDefaultTriggerType` is `FileTriggerType::EmulatedEdge`.
+  // TODO 模拟边缘触发 ？先跳过后面理解
   EmulatedEdge
 };
 
@@ -54,11 +58,13 @@ static constexpr FileTriggerType PlatformDefaultTriggerType = determinePlatformP
 /**
  * Callback invoked when a FileEvent is ready for reading or writing.
  */
+ // file ready callback
 using FileReadyCb = std::function<void(uint32_t events)>;
 
 /**
  * Wrapper for file based (read/write) event notifications.
  */
+ // 基于文件（读/写）事件通知的包装器。
 class FileEvent {
 public:
   virtual ~FileEvent() = default;
@@ -75,6 +81,7 @@ public:
    * events. As opposed to activate(), this routine causes the file event to listen for the
    * registered events and fire callbacks when they are active.
    */
+
   virtual void setEnabled(uint32_t events) PURE;
 
   /**

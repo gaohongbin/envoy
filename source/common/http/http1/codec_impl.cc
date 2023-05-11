@@ -685,6 +685,7 @@ Status ConnectionImpl::onHeaderValue(const char* data, size_t length) {
   return checkMaxHeadersSize();
 }
 
+// header 解析完成后做的回调
 StatusOr<ParserStatus> ConnectionImpl::onHeadersComplete() {
   ASSERT(!processing_trailers_);
   ASSERT(dispatching_);
@@ -1104,6 +1105,8 @@ Envoy::StatusOr<ParserStatus> ServerConnectionImpl::onHeadersCompleteBase() {
 Status ServerConnectionImpl::onMessageBeginBase() {
   if (!resetStreamCalled()) {
     ASSERT(!active_request_.has_value());
+    // 原位构造
+    // TODO 呃... absl::optional 这个东西我也不太懂, 先知道它是构造一个新的 active_request_ 就可以了。
     active_request_.emplace(*this);
     auto& active_request = active_request_.value();
     if (resetStreamCalled()) {

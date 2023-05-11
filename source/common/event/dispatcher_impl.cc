@@ -59,6 +59,8 @@ DispatcherImpl::DispatcherImpl(const std::string& name, Api::Api& api,
                                const ScaledRangeTimerManagerFactory& scaled_timer_factory,
                                const Buffer::WatermarkFactorySharedPtr& watermark_factory)
     : name_(name), api_(api),
+      // 这里看出 DispatcherImpl 默认使用 WatermarkBufferFactory 作为 buffer_factory_
+      // 而 WatermarkBufferFactory 创建的 buffer 为 WatermarkBuffer, 其会根据水位的高低进行调节。
       buffer_factory_(watermark_factory != nullptr
                           ? watermark_factory
                           : std::make_shared<Buffer::WatermarkBufferFactory>()),
@@ -262,6 +264,7 @@ SignalEventPtr DispatcherImpl::listenForSignal(signal_t signal_num, SignalCb cb)
   return SignalEventPtr{new SignalEventImpl(*this, signal_num, cb)};
 }
 
+// Dispatcher 的 post 方法可以将任务投递到任务队列中，交给Dispatcher内的线程去处理
 void DispatcherImpl::post(std::function<void()> callback) {
   bool do_post;
   {
@@ -270,6 +273,7 @@ void DispatcherImpl::post(std::function<void()> callback) {
     post_callbacks_.push_back(callback);
   }
 
+  // 如果 post_callbacks_ 为空的话，说明背后的处理线程是处于非活动状态, 这里是激活处理线程
   if (do_post) {
     post_cb_->scheduleCallbackCurrentIteration();
   }
@@ -366,6 +370,7 @@ void DispatcherImpl::runPostCallbacks() {
     // callbacks execute. Callbacks added after this transfer will re-arm post_cb_ and will execute
     // later in the event loop.
     Thread::LockGuard lock(post_lock_);
+    // callbacks 本质还是 post_callbacks_
     callbacks = std::move(post_callbacks_);
     // post_callbacks_ should be empty after the move.
     ASSERT(post_callbacks_.empty());

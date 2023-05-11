@@ -14,6 +14,7 @@ namespace Upstream {
  * direct call context after it is retrieved from the cluster manager. See ClusterManager::get()
  * for more information.
  */
+ // 可用于直接负载平衡和主机集进行交互的线程本地集群实例
 class ThreadLocalCluster {
 public:
   virtual ~ThreadLocalCluster() = default;
@@ -45,6 +46,8 @@ public:
    * @param context the optional load balancer context.
    * @return the connection pool or nullptr if there is no host available in the cluster.
    */
+   // 为集群分配一个负载均衡的 HTTP 连接池。这是每个线程独享的，因此调用者无需担心线程同步问题。
+   // 使用的负载平衡策略是创建集群时在集群上定义的策略。
   virtual Http::ConnectionPool::Instance*
   httpConnPool(ResourcePriority priority, absl::optional<Http::Protocol> downstream_protocol,
                LoadBalancerContext* context) PURE;
@@ -70,6 +73,7 @@ public:
    * @return both a connection and the host that backs the connection. Both can be nullptr if there
    *         is no host available in the cluster.
    */
+   // 为集群分配一个负载均衡的 TCP 连接。
   virtual Host::CreateConnectionData tcpConn(LoadBalancerContext* context) PURE;
 
   /**

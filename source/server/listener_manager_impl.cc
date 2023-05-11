@@ -714,6 +714,7 @@ ListenerManagerImpl::listeners(ListenerState state) {
   return ret;
 }
 
+// startWorkers 调用该方法时, overridden_listener == null
 void ListenerManagerImpl::addListenerToWorker(Worker& worker,
                                               absl::optional<uint64_t> overridden_listener,
                                               ListenerImpl& listener,
@@ -730,10 +731,12 @@ void ListenerManagerImpl::addListenerToWorker(Worker& worker,
     });
     return;
   }
+
   worker.addListener(
       overridden_listener, listener, [this, &listener, completion_callback](bool success) -> void {
         // The add listener completion runs on the worker thread. Post back to the main thread to
         // avoid locking.
+        // worker 线程完成添加侦听器后。在主线程中执行该 callback 方法, 防止竞争。
         server_.dispatcher().post([this, success, &listener, completion_callback]() -> void {
           // It is possible for a listener to get added on 1 worker but not the others. The below
           // check with onListenerCreateFailure() is there to ensure we execute the
@@ -746,6 +749,8 @@ void ListenerManagerImpl::addListenerToWorker(Worker& worker,
           // listener sockets on the main thread (even in the case of reuse port) we could catch
           // almost all socket errors here. This would both greatly simplify the logic and allow
           // for xDS NACK in most cases.
+          // listener 可能添加到 1 个 worker 而不是所有 worker。
+          // 下面的 onListenerCreateFailure() 检查是为了确保我们在失败时最多执行一次删除/记录/统计。
           if (!success && !listener.onListenerCreateFailure()) {
             ENVOY_LOG(error, "listener '{}' failed to listen on address '{}' on worker",
                       listener.name(), listener.listenSocketFactory().localAddress()->asString());
@@ -933,6 +938,7 @@ void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()
     ENVOY_LOG(debug, "starting worker {}", i);
     ASSERT(warming_listeners_.empty());
     for (const auto& listener : active_listeners_) {
+      // 这里传递的 overridden_listener == null
       addListenerToWorker(*worker, absl::nullopt, *listener,
                           [this, listeners_pending_init, callback]() {
                             if (--(*listeners_pending_init) == 0) {
@@ -941,6 +947,7 @@ void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()
                             }
                           });
     }
+    // 启动 worker
     worker->start(guard_dog);
     if (enable_dispatcher_stats_) {
       worker->initializeStats(*scope_);

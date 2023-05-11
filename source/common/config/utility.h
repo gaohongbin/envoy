@@ -251,6 +251,7 @@ public:
    * @param name string identifier for the particular implementation.
    * @return factory the factory requested or nullptr if it does not exist.
    */
+  // 通过名称获取 factory
   template <class Factory> static Factory& getAndCheckFactoryByName(const std::string& name) {
     if (name.empty()) {
       ExceptionUtil::throwEnvoyException("Provided name for static registration lookup was empty.");

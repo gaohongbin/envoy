@@ -153,10 +153,12 @@ Network::SocketSharedPtr ListenSocketFactoryImpl::createListenSocketAndApplyOpti
 }
 
 Network::SocketSharedPtr ListenSocketFactoryImpl::getListenSocket() {
+  // When this flag is set to false, all worker threads share one socket.
   if (!reuse_port_) {
     // We want to maintain the invariance that listeners do not share the same
     // underlying socket. For that reason we return a socket based on a duplicated
     // file descriptor.
+    // 复制了文件描述符
     return socket_->duplicate();
   }
 

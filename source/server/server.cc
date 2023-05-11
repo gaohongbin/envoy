@@ -671,7 +671,7 @@ void InstanceImpl::onRuntimeReady() {
 
 void InstanceImpl::startWorkers() {
   // The callback will be called after workers are started.
-  // 
+  // workers 被启动以后, 调用该 callback
   listener_manager_->startWorkers(*worker_guard_dog_, [this]() {
     if (isShutdown()) {
       return;
@@ -681,6 +681,7 @@ void InstanceImpl::startWorkers() {
     // Update server stats as soon as initialization is done.
     updateServerStats();
     workers_started_ = true;
+    // hooks 对应 DefaultListenerHooks 是一个空的实现类
     hooks_.onWorkersStarted();
     // At this point we are ready to take traffic and all listening ports are up. Notify our
     // parent if applicable that they can stop listening and drain.

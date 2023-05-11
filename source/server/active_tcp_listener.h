@@ -35,6 +35,7 @@ class ActiveTcpListener : public Network::TcpListenerCallbacks,
                           public Network::BalancedConnectionHandler,
                           Logger::Loggable<Logger::Id::conn_handler> {
 public:
+  // 这里 parent 就是 ConnectionHandlerImpl
   ActiveTcpListener(Network::TcpConnectionHandler& parent, Network::ListenerConfig& config);
   ActiveTcpListener(Network::TcpConnectionHandler& parent, Network::ListenerPtr&& listener,
                     Network::ListenerConfig& config);

@@ -172,6 +172,7 @@ public:
   virtual ActiveClientPtr instantiateActiveClient() PURE;
 
   // Gets a pointer to the list that currently owns this client.
+  // 对 ActiveClient 根据状态分类整理。
   std::list<ActiveClientPtr>& owningList(ActiveClient::State state);
 
   // Removes the PendingStream from the list of streams. Called when the PendingStream is
@@ -315,6 +316,7 @@ protected:
 
   // The number of streams that can be immediately dispatched
   // if all CONNECTING connections become connected.
+  // 如果所有 CONNECTING 状态的连接变成  connected 后，可以分发的 stream 的数量。
   uint32_t connecting_stream_capacity_{0};
 
 private:
