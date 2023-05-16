@@ -20,6 +20,7 @@ namespace ThriftProxy {
 
 void AutoProtocolImpl::setType(ProtocolType type) {
   if (!protocol_) {
+    // 修改 thrift 使用的真正编解码方式
     switch (type) {
     case ProtocolType::Binary:
       setProtocol(std::make_unique<BinaryProtocolImpl>());
@@ -39,11 +40,16 @@ void AutoProtocolImpl::setType(ProtocolType type) {
 
 bool AutoProtocolImpl::readMessageBegin(Buffer::Instance& buffer, MessageMetadata& metadata) {
   if (protocol_ == nullptr) {
+    // 返回 false 表示本次解码的部分并未完成
     if (buffer.length() < 2) {
       return false;
     }
 
+    // 读取 version
+    // 从这里看出, thrift 主要分两类, 一类是 BinaryProtocol, 另一类是 CompactProtocol
+    // 可以参考 https://juejin.cn/post/7077191540124647455
     uint16_t version = buffer.peekBEInt<uint16_t>();
+    // const uint16_t BinaryProtocolImpl::Magic = 0x8001;
     if (BinaryProtocolImpl::isMagic(version)) {
       // 12 bytes is the minimum length for message-begin in the binary protocol.
       if (buffer.length() < BinaryProtocolImpl::MinMessageBeginLength) {
@@ -58,6 +64,7 @@ bool AutoProtocolImpl::readMessageBegin(Buffer::Instance& buffer, MessageMetadat
       } else {
         setType(ProtocolType::Binary);
       }
+      // const uint16_t CompactProtocolImpl::Magic = 0x8201;
     } else if (CompactProtocolImpl::isMagic(version)) {
       setType(ProtocolType::Compact);
     }

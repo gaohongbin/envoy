@@ -23,7 +23,9 @@ bool AutoTransportImpl::decodeFrameStart(Buffer::Instance& buffer, MessageMetada
       return false;
     }
 
+    // 获取 4 字节的 size
     int32_t size = buffer.peekBEInt<int32_t>();
+    // 获取 magic
     uint16_t proto_start = buffer.peekBEInt<uint16_t>(4);
 
     // Currently, transport detection depends on the following:
@@ -60,6 +62,7 @@ bool AutoTransportImpl::decodeFrameStart(Buffer::Instance& buffer, MessageMetada
     }
   }
 
+  // 调用 transport 的 decodeFrameStart 方法开始进行解码
   return transport_->decodeFrameStart(buffer, metadata);
 }
 
