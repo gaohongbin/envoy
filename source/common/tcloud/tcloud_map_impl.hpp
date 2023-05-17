@@ -58,7 +58,7 @@ public:
     if (elem.second) {
       return elem.first->second;
     } else {
-      return defaultTCloudLane;
+      return "";
     }
   }
 
