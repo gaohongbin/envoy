@@ -133,6 +133,8 @@ public:
   const LowerCaseString TcloudLane{"tcloud-lane"};
   const LowerCaseString RemoteIp{"remoteip"};
   const LowerCaseString RealIp{"x-real-ip"};
+  const LowerCaseString TwlSpanContext{"twl-span-context"};
+  const LowerCaseString TraceId{"traceid"};
   const LowerCaseString ProxyAuthenticate{"proxy-authenticate"};
   const LowerCaseString ProxyAuthorization{"proxy-authorization"};
   const LowerCaseString ClientTraceId{"x-client-trace-id"};

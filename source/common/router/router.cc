@@ -377,22 +377,40 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
       ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
 
     }
-  } else if (config_.getTcloudMap()) {
-    std::string defaultTcloudLane = config_.getTcloudMap()->getDefaultValue();
-    headers.setTcloudLane(defaultTcloudLane);
-    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is not null , 没有 sw8, 插入了默认泳道", *callbacks_);
-  } else {
-    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is null ", *callbacks_);
   }
-  //  else if (sw8Spilts.size() >= 2) {
-  //     std::string tcloudLane = config_.getTcloudMap()->getValue(sw8Spilts[1]);
-  //     headers.setTcloudLane(tcloudLane);
-  //     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders getValue, key = {}, value = {} :\n",
-  //                      *callbacks_, sw8Spilts[1], tcloudLane);
-  //     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
-  //   }
 
-  // } 
+  // 兼容公司内部 trace
+  if (config_.getTcloudMap() && !headers.getTwlSpanContextValue().empty() && !headers.getTcloudLaneValue().empty()) {
+    // 对 twl-span-context 的值进行分割, 取 traceId
+    std::vector<std::string> TwlSpanSpilts = absl::StrSplit(std::string(headers.getTwlSpanContextValue()), ':');
+
+    if (!headers.getTcloudLaneValue().empty() && TwlSpanSpilts.size() >= 1) {
+      config_.getTcloudMap()->setKV(TwlSpanSpilts[0], std::string(headers.getTcloudLaneValue()));
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
+                       *callbacks_, TwlSpanSpilts[0], headers.getTcloudLaneValue());
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+    }
+  }
+
+  // 兼容公司内部 trace, 如果用户手动插入了 traceId
+  if (config_.getTcloudMap() && !headers.getTraceIdValue().empty() && !headers.getTcloudLaneValue().empty()) {
+    config_.getTcloudMap()->setKV(headers.getTraceIdValue(), std::string(headers.getTcloudLaneValue()));
+    ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
+                     *callbacks_, headers.getTraceIdValue(), headers.getTcloudLaneValue());
+    ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+  }
+
+  // 如果请求中没有 twl-span-context 也没有 traceId, 但是有 tcloud-lane, 在这里插入
+  if (config_.getTcloudMap() && headers.getTraceIdValue().empty() && headers.getTwlSpanContextValue().empty() && !headers.getTcloudLaneValue().empty()) {
+    // 直接复用 requestId
+    if (!headers.getRequestIdValue().empty()) {
+      headers.setTraceId(headers.getRequestIdValue());
+      config_.getTcloudMap()->setKV(headers.getRequestIdValue(), std::string(headers.getTcloudLaneValue()));
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
+                       *callbacks_, headers.getTraceIdValue(), headers.getTcloudLaneValue());
+      ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
+    }
+  }
   
 
   // Extract debug configuration from filter state. This is used further along to determine whether
@@ -422,8 +440,9 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
       if (sw8Spilts.size() >= 2) {
         std::string sw8Base64 = sw8Spilts[1];
         std::string sw8 = Base64::decodeWithoutPadding(absl::string_view(sw8Base64));
-        headers.addCopy(Http::LowerCaseString("tcloud-id"), sw8);
+        headers.addCopy(Http::LowerCaseString("traceid-sw8"), sw8);
       }
+
   };
 
   // Determine if there is a route entry or a direct response for the request.

@@ -881,14 +881,6 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
  if (connection_manager_.getTcloudMap() && !request_headers_->getSw8Value().empty()) {
    // 对 sw8 的值进行切割
    std::vector<std::string> sw8Spilts = absl::StrSplit(std::string(request_headers_->getSw8Value()), '-');
-
-    //  if (!request_headers_->getTcloudLaneValue().empty() && sw8Spilts.size() >= 2) {
-    //    connection_manager_.getTcloudMap()->setKV(sw8Spilts[1], std::string(request_headers_->getTcloudLaneValue()));
-    //    ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders setKV, key = {}, value = {} :\n{}",
-    //                     *this, sw8Spilts[1], request_headers_->getTcloudLaneValue(), *request_headers_);
-    //    ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
-
-    //  } else
     if (request_headers_->getTcloudLaneValue().empty() && sw8Spilts.size() >= 2) {
      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(sw8Spilts[1]);
      if (!tcloudLane.empty()) {
@@ -899,13 +891,41 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
      }
    }
   }
-// else if (connection_manager_.getTcloudMap()) {
-//    std::string defaultTcloudLane = connection_manager_.getTcloudMap()->getDefaultValue();
-//    request_headers_->setTcloudLane(defaultTcloudLane);
-//    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is not null , 没有 sw8, 插入了默认泳道", *this);
-//  } else {
-//    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is null ", *this);
-//  }
+
+  // tcloud 泳道, 这里为了兼容公司内部 trace
+  if (connection_manager_.getTcloudMap() && !request_headers_->getTwlSpanContextValue().empty()) {
+    // 对 twl-span-context 进行切割
+    std::vector<std::string> twlSpanSpilts = absl::StrSplit(std::string(request_headers_->getTwlSpanContextValue()), ':');
+    if (request_headers_->getTcloudLaneValue().empty() && twlSpanSpilts.size() >= 1) {
+      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(twlSpanSpilts[0]);
+      if (!tcloudLane.empty()) {
+        request_headers_->setTcloudLane(tcloudLane);
+        ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n",
+                         *this, twlSpanSpilts[0], tcloudLane);
+        ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
+      }
+    }
+  }
+
+  // tcloud 泳道, 如果用户手动插入了一个 traceId
+  if (connection_manager_.getTcloudMap() && !request_headers_->getTraceIdValue().empty()) {
+    if (request_headers_->getTcloudLaneValue().empty()) {
+      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(request_headers_->getTraceIdValue());
+      if (!tcloudLane.empty()) {
+        request_headers_->setTcloudLane(tcloudLane);
+        ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n",
+                         *this, request_headers_->getTraceIdValue(), tcloudLane);
+        ENVOY_STREAM_LOG(debug, "tcloud request headers :\n{}", *this, *request_headers_);
+      }
+    }
+  }
+
+  // 如果到这里还没有 tcloud-lane, 则直接插入默认 tcloud-lane
+  if (config_.getTcloudMap() && request_headers_->getTcloudLaneValue().empty()) {
+    std::string defaultTcloudLane = config_.getTcloudMap()->getDefaultValue();
+    request_headers_->setTcloudLane(defaultTcloudLane);
+    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is not null ,插入了默认泳道", *callbacks_);
+  }
 
 
   filter_manager_.requestHeadersInitialized();
@@ -1085,6 +1105,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   // 这里可以做一些修改, 注意这里是针对非 本envoy 创建的请求
   if (!state_.is_internally_created_) { // Only sanitize headers on first pass.
     // Modify the downstream remote address depending on configuration and headers.
+    // request 在这里才会插入 requestId
     filter_manager_.setDownstreamRemoteAddress(ConnectionManagerUtility::mutateRequestHeaders(
         *request_headers_, connection_manager_.read_callbacks_->connection(),
         connection_manager_.config_, *snapped_route_config_, connection_manager_.local_info_));
