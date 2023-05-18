@@ -41,6 +41,8 @@ public:
     } else {
       defaultTCloudLane = "";
     }
+
+    emptyValue = "";
   }
 
   ~TcloudMapImpl() {
@@ -58,7 +60,7 @@ public:
     if (elem.second) {
       return elem.first->second;
     } else {
-      return "";
+      return emptyValue;
     }
   }
 
@@ -158,6 +160,7 @@ protected:
 
 private:
   std::string defaultTCloudLane;
+  std::string emptyValue;
 
   std::unordered_map<Key, Value> cache_items_map;
   mutable Policy<Key> cache_policy;

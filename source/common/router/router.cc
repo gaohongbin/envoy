@@ -394,7 +394,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
 
   // 兼容公司内部 trace, 如果用户手动插入了 traceId
   if (config_.getTcloudMap() && !headers.getTraceIdValue().empty() && !headers.getTcloudLaneValue().empty()) {
-    config_.getTcloudMap()->setKV(headers.getTraceIdValue(), std::string(headers.getTcloudLaneValue()));
+    config_.getTcloudMap()->setKV(std::string(headers.getTraceIdValue()), std::string(headers.getTcloudLaneValue()));
     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
                      *callbacks_, headers.getTraceIdValue(), headers.getTcloudLaneValue());
     ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);
@@ -405,7 +405,7 @@ Http::FilterHeadersStatus Filter::decodeHeaders(Http::RequestHeaderMap& headers,
     // 直接复用 requestId
     if (!headers.getRequestIdValue().empty()) {
       headers.setTraceId(headers.getRequestIdValue());
-      config_.getTcloudMap()->setKV(headers.getRequestIdValue(), std::string(headers.getTcloudLaneValue()));
+      config_.getTcloudMap()->setKV(std::string(headers.getRequestIdValue()), std::string(headers.getTcloudLaneValue()));
       ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders setKV, key = {}, value = {} :\n",
                        *callbacks_, headers.getTraceIdValue(), headers.getTcloudLaneValue());
       ENVOY_STREAM_LOG(debug, "tcloud Filter::decodeHeaders headers :\n{}", *callbacks_, headers);

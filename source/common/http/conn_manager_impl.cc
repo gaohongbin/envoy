@@ -910,7 +910,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   // tcloud 泳道, 如果用户手动插入了一个 traceId
   if (connection_manager_.getTcloudMap() && !request_headers_->getTraceIdValue().empty()) {
     if (request_headers_->getTcloudLaneValue().empty()) {
-      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(request_headers_->getTraceIdValue());
+      std::string tcloudLane = connection_manager_.getTcloudMap()->getValue(std::string(request_headers_->getTraceIdValue()));
       if (!tcloudLane.empty()) {
         request_headers_->setTcloudLane(tcloudLane);
         ENVOY_STREAM_LOG(debug, "tcloud ConnectionManagerImpl::ActiveStream::decodeHeaders getValue, key = {}, value = {} :\n",
@@ -921,10 +921,10 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   }
 
   // 如果到这里还没有 tcloud-lane, 则直接插入默认 tcloud-lane
-  if (config_.getTcloudMap() && request_headers_->getTcloudLaneValue().empty()) {
-    std::string defaultTcloudLane = config_.getTcloudMap()->getDefaultValue();
+  if (connection_manager_.getTcloudMap() && request_headers_->getTcloudLaneValue().empty()) {
+    std::string defaultTcloudLane = connection_manager_.getTcloudMap()->getDefaultValue();
     request_headers_->setTcloudLane(defaultTcloudLane);
-    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is not null ,插入了默认泳道", *callbacks_);
+    ENVOY_STREAM_LOG(debug, "tcloud tcloud_map_ is not null ,插入了默认泳道", *this);
   }
 
 

@@ -283,6 +283,8 @@ private:
 #define INLINE_REQ_STRING_HEADERS(HEADER_FUNC)                                                     \
   HEADER_FUNC(RemoteIp)                                                                            \
   HEADER_FUNC(RealIp)                                                                              \
+  HEADER_FUNC(TwlSpanContext)                                                                      \
+  HEADER_FUNC(TraceId)                                                                             \
   HEADER_FUNC(ClientTraceId)                                                                       \
   HEADER_FUNC(EnvoyDownstreamServiceCluster)                                                       \
   HEADER_FUNC(EnvoyDownstreamServiceNode)                                                          \
