@@ -37,6 +37,7 @@ public:
 
 class ActiveTcpClient : public Envoy::ConnectionPool::ActiveClient {
 public:
+    // ActiveTcpClient 也是一个 ReadFilter
   struct ConnReadFilter : public Network::ReadFilterBaseImpl {
     ConnReadFilter(ActiveTcpClient& parent) : parent_(parent) {}
 

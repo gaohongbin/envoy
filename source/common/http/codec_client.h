@@ -175,6 +175,8 @@ protected:
   // the previous, at least in tests.
   Upstream::HostDescriptionConstSharedPtr host_;
   Network::ClientConnectionPtr connection_;
+  // 这里包含了一个 ClientConnection 实例
+  // 所以其实 Codec 最后是通过 Connection 来起作用的
   ClientConnectionPtr codec_;
   Event::TimerPtr idle_timer_;
   const absl::optional<std::chrono::milliseconds> idle_timeout_;
