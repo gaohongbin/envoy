@@ -12,6 +12,7 @@ namespace Logger {
 /**
  * Logger wrapper for a spdlog logger.
  */
+ // 先学习 https://www.panzhongxian.cn/cn/2020/11/envoy-logging/ 帮助了解 spdlog 的背景知识
 class Logger {
 public:
   /* This is simple mapping between Logger severity levels and spdlog severity levels.
@@ -19,6 +20,7 @@ public:
    * but the method to log at err level is called LOGGER.error not LOGGER.err. All other level are
    * fine spdlog::info corresponds to LOGGER.info method.
    */
+  // 定义日志等级
   using Levels = enum {
     trace = spdlog::level::trace,       // NOLINT(readability-identifier-naming)
     debug = spdlog::level::debug,       // NOLINT(readability-identifier-naming)

@@ -18,6 +18,7 @@
 namespace Envoy {
 namespace Logger {
 
+//  Registry::getSink() 这里默认使用 StderrSinkDelegate
 StandardLogger::StandardLogger(const std::string& name)
     : Logger(std::make_shared<spdlog::logger>(name, Registry::getSink())) {}
 
@@ -29,6 +30,8 @@ SinkDelegate::~SinkDelegate() {
   assert(previous_delegate_ == nullptr);
 }
 
+// 本质就是修改 log_sink_(DelegatingLogSinkSharedPtr) 中的 sink_, 指向 SinkDelegate 本身
+// 并将 log_sink_ 之前的 SinkDelegate 保存在 previous_delegate_ 中
 void SinkDelegate::setDelegate() {
   // There should be no previous delegate before this call.
   assert(previous_delegate_ == nullptr);
@@ -36,6 +39,7 @@ void SinkDelegate::setDelegate() {
   log_sink_->setDelegate(this);
 }
 
+// 重置了 log_sink_ 中的 sink_ 为上一次的 SinkDelegate。
 void SinkDelegate::restoreDelegate() {
   // Ensures stacked allocation of delegates.
   assert(log_sink_->delegate() == this);
@@ -43,11 +47,15 @@ void SinkDelegate::restoreDelegate() {
   previous_delegate_ = nullptr;
 }
 
+// 使用 DelegatingLogSinkSharedPtr 来初始化 StderrSinkDelegate
+// 并将 DelegatingLogSinkSharedPtr 中的 sink_ 指向该 StderrSinkDelegate
 StderrSinkDelegate::StderrSinkDelegate(DelegatingLogSinkSharedPtr log_sink)
     : SinkDelegate(log_sink) {
   setDelegate();
 }
 
+// 为什么这样来析构 ?
+// 析构以后 log_sink_ 指向上一次的 SinkDelegate
 StderrSinkDelegate::~StderrSinkDelegate() { restoreDelegate(); }
 
 void StderrSinkDelegate::log(absl::string_view msg) {
@@ -65,6 +73,7 @@ void DelegatingLogSink::set_formatter(std::unique_ptr<spdlog::formatter> formatt
   formatter_ = std::move(formatter);
 }
 
+// 真正去写日志是 logger 调用 sink 的 log 方法
 void DelegatingLogSink::log(const spdlog::details::log_msg& msg) {
   absl::ReleasableMutexLock lock(&format_mutex_);
   absl::string_view msg_view = absl::string_view(msg.payload.data(), msg.payload.size());
@@ -84,6 +93,7 @@ void DelegatingLogSink::log(const spdlog::details::log_msg& msg) {
   // protection is really only needed in tests. It would be nice to figure out a test-only
   // mechanism for this that does not require extra locking that we don't explicitly need in the
   // prod code.
+  // 而这里 DelegatingLogSink 又调用了 SinkDelegate 的 log 方法
   absl::ReaderMutexLock sink_lock(&sink_mutex_);
   if (should_escape_) {
     sink_->log(escapeLogLine(msg_view));
@@ -111,6 +121,7 @@ DelegatingLogSinkSharedPtr DelegatingLogSink::init() {
 
 static Context* current_context = nullptr;
 
+// enable_fine_grain_logging 表示是否启用文件级日志
 Context::Context(spdlog::level::level_enum log_level, const std::string& log_format,
                  Thread::BasicLockable& lock, bool should_escape, bool enable_fine_grain_logging)
     : log_level_(log_level), log_format_(log_format), lock_(lock), should_escape_(should_escape),
@@ -128,6 +139,7 @@ Context::~Context() {
   }
 }
 
+// 启动文件级日志后, 会在该方法中进行一些设置
 void Context::activate() {
   Registry::getSink()->setLock(lock_);
   Registry::getSink()->setShouldEscape(should_escape_);
@@ -137,8 +149,11 @@ void Context::activate() {
   // sets level and format for Fancy Logger
   fancy_default_level_ = log_level_;
   fancy_log_format_ = log_format_;
+
+  // 如果可以使用 file log
   if (enable_fine_grain_logging_) {
     // loggers with default level before are set to log_level_ as new default
+    // 这里面初始化了 FancyContext
     getFancyContext().setDefaultFancyLevelFormat(log_level_, log_format_);
     if (log_format_ == Logger::Logger::DEFAULT_LOG_FORMAT) {
       fancy_log_format_ = absl::StrReplaceAll(log_format_, {{"[%n]", ""}});
@@ -187,14 +202,17 @@ spdlog::level::level_enum Context::getFancyDefaultLevel() {
   return current_context->fancy_default_level_;
 }
 
+// 根据 id 生成所有的 logger
 std::vector<Logger>& Registry::allLoggers() {
   static std::vector<Logger>* all_loggers =
       new std::vector<Logger>({ALL_LOGGER_IDS(GENERATE_LOGGER)});
   return *all_loggers;
 }
 
+// 根据 id 获取相应的 logger
 spdlog::logger& Registry::getLog(Id id) { return *allLoggers()[static_cast<int>(id)].logger_; }
 
+// 设置所有 logger 的 level
 void Registry::setLogLevel(spdlog::level::level_enum log_level) {
   for (Logger& logger : allLoggers()) {
     logger.logger_->set_level(static_cast<spdlog::level::level_enum>(log_level));
@@ -218,6 +236,7 @@ void Registry::setLogFormat(const std::string& log_format) {
   }
 }
 
+// 通过 name 获取 logger
 Logger* Registry::logger(const std::string& log_name) {
   Logger* logger_to_return = nullptr;
   for (Logger& logger : loggers()) {

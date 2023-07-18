@@ -21,11 +21,13 @@
 #include "absl/synchronization/mutex.h"
 #include "fmt/ostream.h"
 #include "spdlog/spdlog.h"
+#include "spdlog/sinks/rotating_file_sink.h"
 
 namespace Envoy {
 namespace Logger {
 
 // TODO: find out a way for extensions to register new logger IDs
+// 通过这种方式定义了很多 logger Id
 #define ALL_LOGGER_IDS(FUNCTION)                                                                   \
   FUNCTION(admin)                                                                                  \
   FUNCTION(aws)                                                                                    \
@@ -123,6 +125,7 @@ protected:
   SinkDelegate* previousDelegate() { return previous_delegate_; }
 
 private:
+  // 以前的 SinkDelegate
   SinkDelegate* previous_delegate_{nullptr};
   DelegatingLogSinkSharedPtr log_sink_;
 };
@@ -130,6 +133,7 @@ private:
 /**
  * SinkDelegate that writes log messages to stderr.
  */
+ // SinkDelegate 作用是将日志消息写入 stderr。
 class StderrSinkDelegate : public SinkDelegate {
 public:
   explicit StderrSinkDelegate(DelegatingLogSinkSharedPtr log_sink);
@@ -151,6 +155,7 @@ private:
  * Stacks logging sinks, so you can temporarily override the logging mechanism, restoring
  * the previous state when the DelegatingSink is destructed.
  */
+ // spdlog 的 wiki 地址: https://github.com/gabime/spdlog/wiki
 class DelegatingLogSink : public spdlog::sinks::sink {
 public:
   void setLock(Thread::BasicLockable& lock) { stderr_sink_->setLock(lock); }
@@ -209,6 +214,8 @@ private:
     return sink_;
   }
 
+  // ABSL_GUARDED_BY 的意思是加锁
+  // 所以 DelegatingLogSink 真正起作用是 SinkDelegate
   SinkDelegate* sink_ ABSL_GUARDED_BY(sink_mutex_){nullptr};
   absl::Mutex sink_mutex_;
   std::unique_ptr<StderrSinkDelegate> stderr_sink_; // Builtin sink to use as a last resort.
@@ -280,9 +287,16 @@ public:
   /**
    * @return the singleton sink to use for all loggers.
    */
+   // 这个 sink 只用来处理标准输出文件的日志
   static DelegatingLogSinkSharedPtr getSink() {
     static DelegatingLogSinkSharedPtr sink = DelegatingLogSink::init();
     return sink;
+  }
+
+  // 为了能让 envoy 同时打印日志到 stdout 和 file, 这里新增了 FancySink, 用来处理日志文件输出
+  static spdlog::sink_ptr getTraceFancySink(const std::string& traceLogPath) {
+    static spdlog::sink_ptr traceFancySink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(traceLogPath, 1024*1024*50, 5, false);
+    return traceFancySink;
   }
 
   /**
@@ -379,15 +393,28 @@ public:
  * Base logging macros. It is expected that users will use the convenience macros below rather than
  * invoke these directly.
  */
+// 下面是一些日志记录宏, 方便用户使用
 
+// 通过 Envoy::Logger::Logger::LEVEL 获取 spdlog 的 level 等级
 #define ENVOY_SPDLOG_LEVEL(LEVEL)                                                                  \
   (static_cast<spdlog::level::level_enum>(Envoy::Logger::Logger::LEVEL))
 
+// 这个就是通过比较日志级别，来判断是否需要打印该条日志
+// 只做比较
 #define ENVOY_LOG_COMP_LEVEL(LOGGER, LEVEL) (ENVOY_SPDLOG_LEVEL(LEVEL) >= (LOGGER).level())
 
 // Compare levels before invoking logger. This is an optimization to avoid
 // executing expressions computing log contents when they would be suppressed.
 // The same filtering will also occur in spdlog::logger.
+
+// void log(spdlog::source_loc loc, spdlog::level::level_enum lvl, absl::string_view fmt,
+//           const Args&... args) {
+//    logger_->log(loc, lvl, fmt, args...);
+//  }
+// 通过上面 log 的定义
+// 可以知道 __VA_ARGS__ 表示后面的不定参数
+// 判断日志等级, 并进行日志输出
+// while(0) 的作用可以参考这个: https://blog.csdn.net/weixin_52437323/article/details/129151801
 #define ENVOY_LOG_COMP_AND_LOG(LOGGER, LEVEL, ...)                                                 \
   do {                                                                                             \
     if (ENVOY_LOG_COMP_LEVEL(LOGGER, LEVEL)) {                                                     \
@@ -396,12 +423,14 @@ public:
     }                                                                                              \
   } while (0)
 
+// 其实也是进行日志级别比较, 通过 id 获取 Logger
 #define ENVOY_LOG_CHECK_LEVEL(LEVEL) ENVOY_LOG_COMP_LEVEL(ENVOY_LOGGER(), LEVEL)
 
 /**
  * Convenience macro to log to a user-specified logger. When fancy logging is used, the specific
  * logger is ignored and instead the file-specific logger is used.
  */
+ // 输出日志，但这里会判断是输出到 标准输出 还是 文件 中。
 #define ENVOY_LOG_TO_LOGGER(LOGGER, LEVEL, ...)                                                    \
   do {                                                                                             \
     if (Envoy::Logger::Context::useFancyLogger()) {                                                \
@@ -414,24 +443,31 @@ public:
 /**
  * Convenience macro to get logger.
  */
+ // 获取一个 spdlog::logger& 实例
 #define ENVOY_LOGGER() __log_do_not_use_read_comment()
 
 /**
  * Convenience macro to log to the misc logger, which allows for logging without of direct access to
  * a logger.
  */
+ // 获取 misc 的 logger
 #define GET_MISC_LOGGER() ::Envoy::Logger::Registry::getLog(::Envoy::Logger::Id::misc)
+
+// 通过 misc 记录日志
 #define ENVOY_LOG_MISC(LEVEL, ...) ENVOY_LOG_TO_LOGGER(GET_MISC_LOGGER(), LEVEL, ##__VA_ARGS__)
 
 /**
  * Convenience macros for logging with connection ID.
  */
+ // 通过 connection ID 进行日志记录的宏
+ // ENVOY_CONN_LOG_TO_LOGGER 和 普通 ENVOY_LOG 的差别其实就是格式不一样而已，多打了 connection ID
 #define ENVOY_CONN_LOG_TO_LOGGER(LOGGER, LEVEL, FORMAT, CONNECTION, ...)                           \
   ENVOY_LOG_TO_LOGGER(LOGGER, LEVEL, "[C{}] " FORMAT, (CONNECTION).id(), ##__VA_ARGS__)
 
 /**
  * Convenience macros for logging with a stream ID and a connection ID.
  */
+ // 通过 stream ID 和 connection ID 记录日志
 #define ENVOY_STREAM_LOG_TO_LOGGER(LOGGER, LEVEL, FORMAT, STREAM, ...)                             \
   ENVOY_LOG_TO_LOGGER(LOGGER, LEVEL, "[C{}][S{}] " FORMAT,                                         \
                       (STREAM).connection() ? (STREAM).connection()->id() : 0,                     \
@@ -442,7 +478,9 @@ public:
 /**
  * Command line options for log macros: use Fancy Logger or not.
  */
+ // 写日志
 #define ENVOY_LOG(LEVEL, ...) ENVOY_LOG_TO_LOGGER(ENVOY_LOGGER(), LEVEL, ##__VA_ARGS__)
+
 
 #define ENVOY_LOG_FIRST_N_TO_LOGGER(LOGGER, LEVEL, N, ...)                                         \
   do {                                                                                             \
@@ -550,6 +588,12 @@ using t_logclock = std::chrono::steady_clock; // NOLINT
     } else {                                                                                       \
       ENVOY_STREAM_LOG_TO_LOGGER(ENVOY_LOGGER(), LEVEL, FORMAT, STREAM, ##__VA_ARGS__);            \
     }                                                                                              \
+  } while (0)
+
+// 打印 trace 的日志
+#define ENVOY_TRACE_LOG(LEVEL, FORMAT, ...)                                                \
+  do {                                                                                     \
+    FANCY_TRACE_LOG(LEVEL, FORMAT, ##__VA_ARGS__);                                         \
   } while (0)
 
 } // namespace Envoy

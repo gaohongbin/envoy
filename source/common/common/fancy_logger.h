@@ -29,8 +29,19 @@ public:
   /**
    * Initializes Fancy Logger and register it in global map if not done.
    */
+   // 初始化 Fancy Logger 并将其注册到全局映射中。
   void initFancyLogger(std::string key, std::atomic<spdlog::logger*>& logger)
       ABSL_LOCKS_EXCLUDED(fancy_log_lock_);
+
+
+  // 初始化 Trace Fancy Logger 并将其注册到全局映射中。
+  void initTraceFancyLogger(std::string key, std::atomic<spdlog::logger*>& logger)
+  ABSL_LOCKS_EXCLUDED(fancy_log_lock_);
+
+  // tcloud  trace 相关的 log 存储路径
+  void setTraceLogPath(const std::string& traceLogPath) ABSL_LOCKS_EXCLUDED(fancy_log_lock_);
+
+  const std::string& getTraceLogPath();
 
   /**
    * Sets log level. If not found, return false.
@@ -68,12 +79,17 @@ private:
    */
   void initSink();
 
+  void initTraceSink();
+
   /**
    * Creates a logger given key and log level, and add it to map.
    * Key is the log component name, e.g. file name now.
    */
   spdlog::logger* createLogger(std::string key, int level = -1)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(fancy_log_lock_);
+
+  spdlog::logger* createTraceLogger(std::string key, int level = -1)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(fancy_log_lock_);
 
   /**
    * Lock for the following map (not for the corresponding loggers).
@@ -84,6 +100,10 @@ private:
    * Map that stores <key, logger> pairs, key can be the file name.
    */
   FancyMapPtr fancy_log_map_ ABSL_GUARDED_BY(fancy_log_lock_) = std::make_shared<FancyMap>();
+
+  // tcloud trace file 路径
+  // 这里存储默认路径
+  std::string tcloud_trace_log_path_ = "/var/log/trace.log";
 };
 
 FancyContext& getFancyContext();
@@ -109,6 +129,22 @@ FancyContext& getFancyContext();
                          ENVOY_SPDLOG_LEVEL(LEVEL), __VA_ARGS__);                                  \
     }                                                                                              \
   } while (0)
+
+
+// 针对 trace log 创建一个 logger
+#define FANCY_TRACE_LOG(LEVEL, ...)                                                                \
+  do {                                                                                             \
+    static std::atomic<spdlog::logger*> flogger{0};                                                \
+    spdlog::logger* local_flogger = flogger.load(std::memory_order_relaxed);                       \
+    if (!local_flogger) {                                                                          \
+      ::Envoy::getFancyContext().initTraceFancyLogger(std::string("tcloud_trace"), flogger);       \
+      local_flogger = flogger.load(std::memory_order_relaxed);                                     \
+    }                                                                                              \
+    if (ENVOY_LOG_COMP_LEVEL(*local_flogger, LEVEL)) {                                             \
+      local_flogger->log(ENVOY_SPDLOG_LEVEL(LEVEL), __VA_ARGS__);                                  \
+    }                                                                                              \
+  } while (0)
+
 
 /**
  * Convenient macro for connection log.

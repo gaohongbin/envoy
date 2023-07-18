@@ -73,6 +73,8 @@ public:
   void setLogLevel(spdlog::level::level_enum log_level) { log_level_ = log_level; }
   void setLogFormat(const std::string& log_format) { log_format_ = log_format; }
   void setLogPath(const std::string& log_path) { log_path_ = log_path; }
+  // tcloud tracr 日志路径
+  void setTcloudTraceLogPath(const std::string& tcloud_trace_log_path) { tcloud_trace_log_path_ = tcloud_trace_log_path; }
   void setRestartEpoch(uint64_t restart_epoch) { restart_epoch_ = restart_epoch; }
   void setMode(Server::Mode mode) { mode_ = mode; }
   void setFileFlushIntervalMsec(std::chrono::milliseconds file_flush_interval_msec) {
@@ -135,6 +137,8 @@ public:
   bool logFormatEscaped() const override { return log_format_escaped_; }
   bool enableFineGrainLogging() const override { return enable_fine_grain_logging_; }
   const std::string& logPath() const override { return log_path_; }
+  // tcloud trace 日志路径
+  const std::string& tcloudTraceLogPath() const override { return tcloud_trace_log_path_; }
   uint64_t restartEpoch() const override { return restart_epoch_; }
   Server::Mode mode() const override { return mode_; }
   std::chrono::milliseconds fileFlushIntervalMsec() const override {
@@ -188,6 +192,8 @@ private:
   std::string log_format_;
   bool log_format_escaped_;
   std::string log_path_;
+  // tcloud tracr 日志路径
+  std::string tcloud_trace_log_path_;
   uint64_t restart_epoch_;
   std::string service_cluster_;
   std::string service_node_;

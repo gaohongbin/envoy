@@ -34,6 +34,7 @@ std::vector<std::string> toArgsVector(int argc, const char* const* argv) {
 }
 } // namespace
 
+// MainCommon 函数在启动的时候调用该方法来实例化
 OptionsImpl::OptionsImpl(int argc, const char* const* argv,
                          const HotRestartVersionCb& hot_restart_version_cb,
                          spdlog::level::level_enum default_log_level)
@@ -108,11 +109,13 @@ OptionsImpl::OptionsImpl(std::vector<std::string> args,
   TCLAP::SwitchArg log_format_escaped("", "log-format-escaped",
                                       "Escape c-style escape sequences in the application logs",
                                       cmd, false);
+  // 是否启用文件级日志控制
   TCLAP::SwitchArg enable_fine_grain_logging(
       "", "enable-fine-grain-logging",
       "Logger mode: enable file level log control(Fancy Logger)or not", cmd, false);
-  TCLAP::ValueArg<std::string> log_path("", "log-path", "Path to logfile", false, "", "string",
-                                        cmd);
+  TCLAP::ValueArg<std::string> log_path("", "log-path", "Path to logfile", false, "", "string", cmd);
+  // tcloud trace 日志路径
+  TCLAP::ValueArg<std::string> tcloud_trace_log_path("", "tcloud-trace-log-path", "tcloud trace log Path", false, "", "string", cmd);
   TCLAP::ValueArg<uint32_t> restart_epoch("", "restart-epoch", "hot restart epoch #", false, 0,
                                           "uint32_t", cmd);
   TCLAP::SwitchArg hot_restart_version_option("", "hot-restart-version",
@@ -256,6 +259,8 @@ OptionsImpl::OptionsImpl(std::vector<std::string> args,
   ignore_unknown_dynamic_fields_ = ignore_unknown_dynamic_fields.getValue();
   admin_address_path_ = admin_address_path.getValue();
   log_path_ = log_path.getValue();
+  // tcloud trace 日志路径
+  tcloud_trace_log_path_ = tcloud_trace_log_path.getValue();
   service_cluster_ = service_cluster.getValue();
   service_node_ = service_node.getValue();
   service_zone_ = service_zone.getValue();
@@ -371,6 +376,8 @@ Server::CommandLineOptionsPtr OptionsImpl::toCommandLineOptions() const {
   command_line_options->set_log_format_escaped(logFormatEscaped());
   command_line_options->set_enable_fine_grain_logging(enableFineGrainLogging());
   command_line_options->set_log_path(logPath());
+  // tcloud trace 日志路径
+  command_line_options->set_tcloud_trace_log_path(tcloudTraceLogPath());
   command_line_options->set_service_cluster(serviceClusterName());
   command_line_options->set_service_node(serviceNodeName());
   command_line_options->set_service_zone(serviceZone());

@@ -5,6 +5,7 @@ namespace Logger {
 
 const char* Logger::DEFAULT_LOG_FORMAT = "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v";
 
+// base_logger 默认实现
 Logger::Logger(std::shared_ptr<spdlog::logger> logger) : logger_(logger) {
   logger_->set_pattern(DEFAULT_LOG_FORMAT);
   logger_->set_level(spdlog::level::trace);

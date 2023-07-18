@@ -17,6 +17,7 @@ namespace Logger {
 /**
  * SinkDelegate that writes log messages to a file.
  */
+
 class FileSinkDelegate : public SinkDelegate {
 public:
   FileSinkDelegate(const std::string& log_path, AccessLog::AccessLogManager& log_manager,

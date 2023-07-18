@@ -51,7 +51,7 @@ message ServerInfo {
   CommandLineOptions command_line_options = 6;
 }
 
-// [#next-free-field: 29]
+// [#next-free-field: 30]
 message CommandLineOptions {
   enum IpVersion {
     v4 = 0;
@@ -151,4 +151,7 @@ message CommandLineOptions {
 
   // See :option:`--disable-extensions` for details.
   repeated string disabled_extensions = 28;
+
+  // See :option:`--tcloud-trace-log-path` for details.
+  string tcloud_trace_log_path = 29;
 }

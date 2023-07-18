@@ -193,6 +193,11 @@ public:
   virtual const std::string& logPath() const PURE;
 
   /**
+   * @return const std::string& tcloud 网关 trace 日志路径
+   */
+  virtual const std::string& tcloudTraceLogPath() const PURE;
+
+  /**
    * @return the restart epoch. 0 indicates the first server start, 1 the second, and so on.
    */
   virtual uint64_t restartEpoch() const PURE;

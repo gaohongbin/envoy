@@ -107,6 +107,8 @@ ConnectionManagerImpl::ConnectionManagerImpl(ConnectionManagerConfig& config,
       enable_internal_redirects_with_body_(Runtime::runtimeFeatureEnabled(
           "envoy.reloadable_features.internal_redirects_with_body")), 
       tcloud_map_(tcloud_map) {
+    ENVOY_TRACE_LOG(info, "测试一下能否在 file 中打印日志");
+
   if (tcloud_map) {
     ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map is not null");
   } else {

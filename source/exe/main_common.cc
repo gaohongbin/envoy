@@ -77,10 +77,14 @@ MainCommonBase::MainCommonBase(const Server::Options& options, Event::TimeSystem
     Thread::BasicLockable& log_lock = restarter_->logLock();
     Thread::BasicLockable& access_log_lock = restarter_->accessLogLock();
     auto local_address = Network::Utility::getLocalAddress(options_.localAddressIpVersion());
+    // 这里我们设置 FancyContext 中的 tcloud trace file log
+    getFancyContext().setTraceLogPath(options_.tcloudTraceLogPath());
+    // 这里我们看看 Logger::Context 的初始化
     logging_context_ = std::make_unique<Logger::Context>(options_.logLevel(), options_.logFormat(),
                                                          log_lock, options_.logFormatEscaped(),
                                                          options_.enableFineGrainLogging());
 
+    // 调整各组件的日志级别
     configureComponentLogLevels();
 
     // Provide consistent behavior for out-of-memory, regardless of whether it occurs in a try/catch
@@ -208,18 +212,23 @@ MainCommon::MainCommon(const std::vector<std::string>& args)
 
 // MainCommon 的初始化逻辑, 主要逻辑是空的, 但是初始化两个变量, options_ 和 base_
 // 找到一个 envoy 的启动参数如下:
-//   - args:
-//    - proxy
-//    - router
-//    - --domain
-//    - istio-work-test.svc.cluster.local
-//    - --proxyLogLevel=warning
-//    - --proxyComponentLogLevel=misc:error
-//    - --log_output_level=default:info
-//    - --serviceCluster
-//    - envoy-gw-dstest
+//    Envoy command: [
+//    -c etc/istio/proxy/envoy-rev0.json
+//    --restart-epoch 0
+//    --drain-time-s 45
+//    --drain-strategy immediate
+//    --parent-shutdown-time-s 60
+//    --service-cluster gaohongbin-test-gw
+//    --service-node router~10.58.136.19~gaohongbin-test-gw.ht-8n6tq.istio-work-test~istio-work-test.svc.cluster.local
+//    --local-address-ip-version v4
+//    --bootstrap-version 3
+//    --disable-hot-restart
+//    --log-format %Y-%m-%dT%T.%fZ	%l	envoy %n	%v -l warning
+//    --component-log-level misc:error
+//    ]
 
 // TODO prod_component_factory_ 什么时候初始化的呢？
+// options_ 也就是 envoy 启动的一些参数配置是在这里初始化的。
 MainCommon::MainCommon(int argc, const char* const* argv)
     : options_(argc, argv, &MainCommon::hotRestartVersion, spdlog::level::info),
       base_(options_, real_time_system_, default_listener_hooks_, prod_component_factory_,

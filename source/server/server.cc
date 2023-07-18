@@ -95,6 +95,8 @@ InstanceImpl::InstanceImpl(
   TRY_ASSERT_MAIN_THREAD {
     if (!options.logPath().empty()) {
       TRY_ASSERT_MAIN_THREAD {
+          // 这里通过 Logger::Registry::getSink() 修改了 DelegatingLogSink 里面的配置, 所以后面日志就会打印到 file 中
+          // 但是很奇怪的是, file_logger_ 这个字段目前并没有使用, 但是确实可以改变 log-sink, 所以还是有影响的。
         file_logger_ = std::make_unique<Logger::FileSinkDelegate>(
             options.logPath(), access_log_manager_, Logger::Registry::getSink());
       }
@@ -104,6 +106,21 @@ InstanceImpl::InstanceImpl(
             fmt::format("Failed to open log-file '{}'. e.what(): {}", options.logPath(), e.what()));
       }
     }
+
+    // 创建 trace 相关的 sink
+//    if (!options.tcloudTraceLogPath().empty()) {
+//        TRY_ASSERT_MAIN_THREAD {
+//            // 这里通过 Logger::Registry::getSink() 修改了 DelegatingLogSink 里面的配置, 所以后面日志就会打印到 file 中
+//            // 但是很奇怪的是, trace_file_logger_ 这个字段目前并没有使用, 但是确实可以改变 log-sink, 所以还是有影响的。
+//            trace_file_logger_ = std::make_unique<Logger::FileSinkDelegate>(
+//                    options.tcloudTraceLogPath(), access_log_manager_, Logger::Registry::getTraceFancySink());
+//        }
+//        END_TRY
+//        catch (const EnvoyException& e) {
+//            throw EnvoyException(
+//                    fmt::format("Failed to open trace-log-file '{}'. e.what(): {}", options.tcloudTraceLogPath(), e.what()));
+//        }
+//    }
 
     restarter_.initialize(*dispatcher_, *this);
     drain_manager_ = component_factory.createDrainManager(*this);
@@ -134,6 +151,9 @@ InstanceImpl::~InstanceImpl() {
   // Stop logging to file before all the AccessLogManager and its dependencies are
   // destructed to avoid crashing at shutdown.
   file_logger_.reset();
+
+  // 销毁 trace 使用的 log-file
+  // trace_file_logger_.reset();
 
   // Destruct the ListenerManager explicitly, before InstanceImpl's local init_manager_ is
   // destructed.

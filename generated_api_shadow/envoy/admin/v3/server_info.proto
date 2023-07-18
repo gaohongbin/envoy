@@ -59,7 +59,7 @@ message ServerInfo {
   config.core.v3.Node node = 7;
 }
 
-// [#next-free-field: 38]
+// [#next-free-field: 39]
 message CommandLineOptions {
   option (udpa.annotations.versioning).previous_message_type =
       "envoy.admin.v2alpha.CommandLineOptions";
@@ -203,4 +203,7 @@ message CommandLineOptions {
     (envoy.annotations.deprecated_at_minor_version) = "3.0",
     (envoy.annotations.disallowed_by_default) = true
   ];
+
+  // See :option:`--tcloud-trace-log-path` for details.
+  string tcloud_trace_log_path = 38;
 }
