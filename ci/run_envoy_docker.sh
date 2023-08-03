@@ -83,7 +83,7 @@ time docker pull "${ENVOY_BUILD_IMAGE}"
 
 
 # Since we specify an explicit hash, docker-run will pull from the remote repo if missing.
-docker run --network=host --rm \
+docker run --network="container:meta-protocol-proxy-build-5" --rm \
        "${ENVOY_DOCKER_OPTIONS[@]}" \
        "${VOLUMES[@]}" \
        -e AZP_BRANCH \
