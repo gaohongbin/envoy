@@ -109,6 +109,10 @@ FALSE_RUNTIME_GUARD(envoy_reloadable_features_runtime_initialized);
 // Android.
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_always_use_v6);
 
+// tcloud
+FALSE_RUNTIME_GUARD(envoy_reloadable_features_require_strict_1xx_and_204_response_headers);
+
+
 // Block of non-boolean flags. These are deprecated. Do not add more.
 ABSL_FLAG(uint64_t, envoy_headermap_lazy_map_min_size, 3, "");  // NOLINT
 ABSL_FLAG(uint64_t, re2_max_program_size_error_level, 100, ""); // NOLINT

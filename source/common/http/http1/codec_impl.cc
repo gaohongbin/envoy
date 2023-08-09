@@ -1432,7 +1432,8 @@ Envoy::StatusOr<CallbackResult> ClientConnectionImpl::onHeadersCompleteBase() {
       handling_upgrade_ = true;
     }
 
-    if (parser_->statusCode() < 200 || parser_->statusCode() == 204) {
+    if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.require_strict_1xx_and_204_response_headers") &&
+       (parser_->statusCode() < 200 || parser_->statusCode() == 204)) {
       if (headers->TransferEncoding()) {
         RETURN_IF_ERROR(
             sendProtocolError(Http1ResponseCodeDetails::get().TransferEncodingNotAllowed));
