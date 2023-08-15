@@ -245,6 +245,10 @@ void AsyncStreamImpl::resetStream() {
   cleanup();
 }
 
+void AsyncStreamImpl::writeTCloudTrace() {
+    ENVOY_LOG(debug, "AsyncStreamImpl::writeTCloudTrace()");
+}
+
 AsyncRequestImpl::AsyncRequestImpl(RequestMessagePtr&& request, AsyncClientImpl& parent,
                                    AsyncClient::Callbacks& callbacks,
                                    const AsyncClient::RequestOptions& options)
@@ -326,6 +330,10 @@ void AsyncRequestImpl::cancel() {
   child_span_->setTag(Tracing::Tags::get().Canceled, Tracing::Tags::get().True);
 
   reset();
+}
+
+void AsyncRequestImpl::writeTCloudTrace() {
+    // ENVOY_LOG(debug, "AsyncRequestImpl::writeTCloudTrace()");
 }
 
 } // namespace Http

@@ -672,6 +672,7 @@ HttpConnectionManagerConfig::createCodec(Network::Connection& connection,
 
 // 结合 router 的 config.cc 中定义的 createFilterFactoryFromProtoTyped 的定义,
 // 这里  config.value()(callbacks); 会将新创建的 http_filter 添加到 callbacks 中。
+// 这里的 callback 是 filterManager
 void HttpConnectionManagerConfig::createFilterChainForFactories(
     Http::FilterChainFactoryCallbacks& callbacks, const FilterFactoriesList& filter_factories) {
   bool added_missing_config_filter = false;
@@ -694,6 +695,7 @@ void HttpConnectionManagerConfig::createFilterChainForFactories(
   }
 }
 
+// 这里传入的  callback 是 FilterManager
 void HttpConnectionManagerConfig::createFilterChain(Http::FilterChainFactoryCallbacks& callbacks) {
   createFilterChainForFactories(callbacks, filter_factories_);
 }

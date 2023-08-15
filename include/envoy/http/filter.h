@@ -586,6 +586,10 @@ public:
    */
   virtual void addUpstreamSocketOptions(const Network::Socket::OptionsSharedPtr& options) PURE;
 
+
+  // tcloud trace 写入
+  virtual void writeTCloudTrace() PURE;
+
   /**
    * @return The socket options to be applied to the upstream request.
    */

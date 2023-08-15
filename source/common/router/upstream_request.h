@@ -120,6 +120,8 @@ public:
   bool encodeComplete() const { return encode_complete_; }
   RouterFilterInterface& parent() { return parent_; }
 
+  // void writeTCloudTrace();
+
 private:
   bool shouldSendEndStream() {
     // Only encode end stream if the full request has been received, the body

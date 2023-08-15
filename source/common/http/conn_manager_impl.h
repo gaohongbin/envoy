@@ -301,6 +301,9 @@ private:
 
     void traceRequest();
 
+    void createTCloudTraceSpan();
+    void writeTCloudTrace() override;
+
     // Updates the snapped_route_config_ (by reselecting scoped route configuration), if a scope is
     // not found, snapped_route_config_ is set to Router::NullConfigImpl.
     void snapScopedRouteConfig();
@@ -331,6 +334,40 @@ private:
       bool decorated_propagate_ : 1;
     };
 
+    struct ClientSpan {
+        std::string traceId = "";
+        std::string spanId = "";
+        std::string parentId = "";
+        std::string deepId = "";
+        std::string serviceName = "";
+        std::string parentServiceName = "";
+        std::string spanType = "http.gateway";
+        std::string spanName = "";
+        std::string spanKind = "client";
+        std::string localIp = "";
+        uint64_t startTime;
+        uint64_t duration = 0;
+        std::string zpBenchId = "";
+        std::string tags = "{}";
+    };
+
+    struct ServerSpan {
+      std::string traceId = "";
+      std::string spanId = "";
+      std::string parentId;
+      std::string deepId;
+      std::string serviceName;
+      std::string parentServiceName;
+      std::string spanType = "http.gateway";
+      std::string spanName;
+      std::string spanKind = "server";
+      std::string localIp = "";
+      uint64_t startTime;
+      uint64_t duration;
+      std::string zpBenchId = "";
+      std::string tags = "{}";
+    };
+
     // Per-stream idle timeout callback.
     void onIdleTimeout();
     // Per-stream request timeout callback.
@@ -354,6 +391,21 @@ private:
         tracing_custom_tags_ = std::make_unique<Tracing::CustomTagMap>();
       }
       return *tracing_custom_tags_;
+    }
+
+    // tcloud 相关方法
+    ClientSpan& getOrMakeClientSpanPtr() {
+      if (clientSpanPtr_ == nullptr) {
+          clientSpanPtr_ = std::make_unique<ClientSpan>();
+      }
+      return *clientSpanPtr_;
+    }
+
+    ServerSpan& getOrMakeServerSpanPtr() {
+      if (serverSpanPtr_ == nullptr) {
+          serverSpanPtr_ = std::make_unique<ServerSpan>();
+      }
+      return *serverSpanPtr_;
     }
 
     ConnectionManagerImpl& connection_manager_;
@@ -397,6 +449,9 @@ private:
     const std::string* decorated_operation_{nullptr};
     std::unique_ptr<RdsRouteConfigUpdateRequester> route_config_update_requester_;
     std::unique_ptr<Tracing::CustomTagMap> tracing_custom_tags_{nullptr};
+    std::unique_ptr<ClientSpan> clientSpanPtr_{nullptr};
+    std::unique_ptr<ServerSpan> serverSpanPtr_{nullptr};
+
 
     friend FilterManager;
   };

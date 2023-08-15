@@ -13,6 +13,7 @@ namespace Envoy {
  * MonotonicTime should be used when tracking time for computing an interval.
  */
 using Seconds = std::chrono::seconds;
+// 参考 https://blog.csdn.net/hltt3838/article/details/120337706
 using SystemTime = std::chrono::time_point<std::chrono::system_clock>;
 using MonotonicTime = std::chrono::time_point<std::chrono::steady_clock>;
 

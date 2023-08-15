@@ -80,6 +80,12 @@ public:
     response_trailers_ = std::move(response_trailers);
     setResponseTrailers_(*response_trailers_);
   }
+
+  // tcloud trace
+  void writeTCloudTrace() override {
+
+  }
+
   MOCK_METHOD(RequestHeaderMapOptRef, requestHeaders, ());
   MOCK_METHOD(RequestTrailerMapOptRef, requestTrailers, ());
   MOCK_METHOD(ResponseHeaderMapOptRef, continueHeaders, ());
@@ -238,6 +244,11 @@ public:
     stream_info_.setResponseCodeDetails(details);
     encodeHeaders_(*headers, end_stream);
   }
+
+  void writeTCloudTrace() override {
+
+  };
+
   MOCK_METHOD(ResponseHeaderMapOptRef, responseHeaders, (), (const));
   void encodeTrailers(ResponseTrailerMapPtr&& trailers) override { encodeTrailers_(*trailers); }
   MOCK_METHOD(ResponseTrailerMapOptRef, responseTrailers, (), (const));

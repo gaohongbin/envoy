@@ -567,5 +567,9 @@ void UpstreamRequest::enableDataFromDownstreamForFlowControl() {
   }
 }
 
+//void UpstreamRequest::writeTCloudTrace() {
+//    parent_.callbacks()
+//}
+
 } // namespace Router
 } // namespace Envoy

@@ -1422,6 +1422,10 @@ absl::optional<Router::ConfigConstSharedPtr> ActiveStreamDecoderFilter::routeCon
   return parent_.filter_manager_callbacks_.routeConfig();
 }
 
+void ActiveStreamDecoderFilter::writeTCloudTrace() {
+    parent_.filter_manager_callbacks_.writeTCloudTrace();
+}
+
 Buffer::InstancePtr ActiveStreamEncoderFilter::createBuffer() {
   auto buffer = dispatcher().getWatermarkFactory().create(
       [this]() -> void { this->responseDataDrained(); },

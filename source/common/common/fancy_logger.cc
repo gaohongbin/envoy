@@ -159,8 +159,9 @@ ABSL_EXCLUSIVE_LOCKS_REQUIRED(fancy_log_lock_) {
         lv = static_cast<level_enum>(level);
     }
     new_trace_logger->set_level(lv);
-    new_trace_logger->set_pattern(Logger::Context::getFancyLogFormat());
-    new_trace_logger->flush_on(level_enum::critical);
+    // new_trace_logger->set_pattern(Logger::Context::getFancyLogFormat());
+    new_trace_logger->set_pattern("%v");
+    new_trace_logger->flush_on(level_enum::debug);
     fancy_log_map_->insert(std::make_pair(key, new_trace_logger));
     return new_trace_logger.get();
 }

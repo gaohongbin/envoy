@@ -95,6 +95,8 @@ public:
   void sendData(Buffer::Instance& data, bool end_stream) override;
   void sendTrailers(RequestTrailerMap& trailers) override;
   void reset() override;
+
+  void writeTCloudTrace() override;
   bool isAboveWriteBufferHighWatermark() const override { return high_watermark_calls_ > 0; }
 
 protected:
@@ -468,6 +470,8 @@ public:
 
   // AsyncClient::Request
   void cancel() override;
+
+  void writeTCloudTrace() override;
 
 private:
   void initialize();

@@ -285,6 +285,7 @@ private:
   HEADER_FUNC(RealIp)                                                                              \
   HEADER_FUNC(TwlSpanContext)                                                                      \
   HEADER_FUNC(TraceId)                                                                             \
+  HEADER_FUNC(ZpBenchId)                                                                           \
   HEADER_FUNC(ClientTraceId)                                                                       \
   HEADER_FUNC(EnvoyDownstreamServiceCluster)                                                       \
   HEADER_FUNC(EnvoyDownstreamServiceNode)                                                          \

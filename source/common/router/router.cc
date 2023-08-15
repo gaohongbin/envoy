@@ -1380,6 +1380,7 @@ void Filter::resetOtherUpstreams(UpstreamRequest& upstream_request) {
   LinkedList::moveIntoList(std::move(final_upstream_request), upstream_requests_);
 }
 
+// 上游返回了 rsp
 void Filter::onUpstreamHeaders(uint64_t response_code, Http::ResponseHeaderMapPtr&& headers,
                                UpstreamRequest& upstream_request, bool end_stream) {
   ENVOY_STREAM_LOG(debug, "upstream headers complete: end_stream={}", *callbacks_, end_stream);
@@ -1505,6 +1506,7 @@ void Filter::onUpstreamHeaders(uint64_t response_code, Http::ResponseHeaderMapPt
 
   downstream_response_started_ = true;
   final_upstream_request_ = &upstream_request;
+  // todo resetOtherUpstreams 这个逻辑是为什么
   resetOtherUpstreams(upstream_request);
   if (end_stream) {
     onUpstreamComplete(upstream_request);
@@ -1527,6 +1529,9 @@ void Filter::onUpstreamData(Buffer::Instance& data, UpstreamRequest& upstream_re
     }
     onUpstreamComplete(upstream_request);
   }
+
+  // tcloud trace 写入 trace 信息
+  callbacks_->writeTCloudTrace();
 
   callbacks_->encodeData(data, end_stream);
 }
@@ -1608,6 +1613,9 @@ void Filter::onUpstreamComplete(UpstreamRequest& upstream_request) {
       code_stats.chargeResponseTiming(info);
     }
   }
+
+  // todo 可能写入 tcloud trace
+
 
   upstream_request.removeFromList(upstream_requests_);
   cleanup();

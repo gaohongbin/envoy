@@ -107,7 +107,7 @@ ConnectionManagerImpl::ConnectionManagerImpl(ConnectionManagerConfig& config,
       enable_internal_redirects_with_body_(Runtime::runtimeFeatureEnabled(
           "envoy.reloadable_features.internal_redirects_with_body")), 
       tcloud_map_(tcloud_map) {
-    ENVOY_TRACE_LOG(info, "测试一下能否在 file 中打印日志");
+    // ENVOY_TRACE_LOG(info, "测试一下能否在 file 中打印日志");
 
   if (tcloud_map) {
     ENVOY_LOG(debug, "tcloud ConnectionManagerImpl tcloud_map is not null");
@@ -1176,8 +1176,14 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
   }
 
   // Check if tracing is enabled at all.
+  // 根据 connection_manager 的 config 配置,
   if (connection_manager_.config_.tracingConfig()) {
     traceRequest();
+  }
+
+  // 这里生成 tcloud trace 相关信息
+  if (true) {
+      createTCloudTraceSpan();
   }
 
   ENVOY_STREAM_LOG(debug, "TCloud 是否插入了 Sw8, request headers complete:\n{}", *this, *request_headers_);
@@ -1189,6 +1195,156 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
 
   // Reset it here for both global and overridden cases.
   resetIdleTimer();
+}
+
+// 写入日志系统
+void ConnectionManagerImpl::ActiveStream::writeTCloudTrace() {
+    uint64_t endTime = std::chrono::duration_cast<std::chrono::milliseconds>(connection_manager_.timeSource().systemTime().time_since_epoch()).count();
+
+    ServerSpan& serverSpan = getOrMakeServerSpanPtr();
+    ClientSpan& clientSpan = getOrMakeClientSpanPtr();
+
+    serverSpan.duration = endTime - serverSpan.startTime;
+    clientSpan.duration = endTime - clientSpan.startTime;
+
+    // traceId - spanId - parentId - deepId - serviceName - parentServiceName - spanType - spanName - spanKind - localIp - startTime - duration - tags - zpBenchId
+    ENVOY_TRACE_LOG(info, "{} - {} - {} - {} - {} - {} - {} - {} - {} - {} - {} - {} - {} - {}",  clientSpan.traceId, clientSpan.spanId, clientSpan.parentId, clientSpan.deepId, clientSpan.serviceName, clientSpan.parentServiceName, clientSpan.spanType, clientSpan.spanName, clientSpan.spanKind, clientSpan.localIp, clientSpan.startTime, clientSpan.duration, clientSpan.tags, clientSpan.zpBenchId);
+    ENVOY_TRACE_LOG(info, "{} - {} - {} - {} - {} - {} - {} - {} - {} - {} - {} - {} - {} - {}",  serverSpan.traceId, serverSpan.spanId, serverSpan.parentId, serverSpan.deepId, serverSpan.serviceName, serverSpan.parentServiceName, serverSpan.spanType, serverSpan.spanName, serverSpan.spanKind, serverSpan.localIp, serverSpan.startTime, serverSpan.duration, serverSpan.tags, serverSpan.zpBenchId);
+}
+
+// tcloud 融合 trace
+void ConnectionManagerImpl::ActiveStream::createTCloudTraceSpan() {
+    // 先获取 header 中的字段
+    std::string zpBenchId = std::string(request_headers_->getZpBenchIdValue());
+    std::string traceId = std::string(request_headers_->getTraceIdValue());
+    std::string twlSpanContext = std::string(request_headers_->getTwlSpanContextValue());
+
+    // 初始化 serverSpan 和 clientSpan
+    ServerSpan& serverSpan = getOrMakeServerSpanPtr();
+    ClientSpan& clientSpan = getOrMakeClientSpanPtr();
+
+    if (!traceId.empty()) {
+        // 生成 server Span
+        serverSpan.traceId = traceId;
+        serverSpan.spanId = std::to_string(connection_manager_.random_generator_.random());
+        serverSpan.parentId = "0";
+        serverSpan.deepId = "1";
+        serverSpan.serviceName = std::string(std::getenv("TWL_LABEL_app"));
+        serverSpan.parentServiceName = std::string(std::getenv("TWL_LABEL_app"));
+        serverSpan.spanType = "http.gateway";
+        serverSpan.spanName = std::string(request_headers_->getMethodValue()) + "_" + std::string(request_headers_->getPathValue());
+        serverSpan.spanKind = "server";
+        serverSpan.localIp = connection_manager_.local_info_.address()->ip()->addressAsString();
+        serverSpan.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(connection_manager_.timeSource().systemTime().time_since_epoch()).count();
+        if (!zpBenchId.empty()) {
+            serverSpan.zpBenchId = zpBenchId;
+        } else {
+            serverSpan.zpBenchId = "0";
+        }
+
+        // 生成 client span
+        clientSpan.traceId = traceId;
+        clientSpan.spanId = std::to_string(connection_manager_.random_generator_.random());
+        clientSpan.parentId = serverSpan.spanId;
+        clientSpan.deepId = "1.1";
+        clientSpan.serviceName = std::string(std::getenv("TWL_LABEL_app"));
+        clientSpan.parentServiceName = std::string(std::getenv("TWL_LABEL_app"));
+        clientSpan.spanType = "http.gateway";
+        clientSpan.spanName = std::string(request_headers_->getMethodValue()) + "_" + std::string(request_headers_->getPathValue());
+        clientSpan.spanKind = "client";
+        clientSpan.localIp = connection_manager_.local_info_.address()->ip()->addressAsString();
+        clientSpan.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(connection_manager_.timeSource().systemTime().time_since_epoch()).count();
+        if (!zpBenchId.empty()) {
+            clientSpan.zpBenchId = zpBenchId;
+        } else {
+            clientSpan.zpBenchId = "0";
+        }
+
+        // twlSpanContext = traceId:spanId:parentId:parentServiceName:deepId:nextDeepId:zpBenchId
+        std::string newTwlSpanContext = clientSpan.traceId + ":" + clientSpan.spanId + ":" + clientSpan.parentId + ":" + clientSpan.parentServiceName + ":" + clientSpan.deepId + ":2:" + clientSpan.zpBenchId;
+        request_headers_->removeTwlSpanContext();
+        request_headers_->setTwlSpanContext(newTwlSpanContext);
+        return ;
+
+    } else if (!twlSpanContext.empty()){
+        std::vector<std::string> twlSpanSpilts = absl::StrSplit(twlSpanContext, ':');
+        if (twlSpanSpilts.size() != 7) {
+            return ;
+        }
+
+        std::string nextDeepId = twlSpanSpilts[5];
+        int nextDeepIdInt = atoi(nextDeepId.c_str());
+
+
+        // twlSpanContext = traceId:spanId:parentId:parentServiceName:deepId:nextDeepId:zpBenchId
+        serverSpan.traceId = twlSpanSpilts[0];
+        serverSpan.spanId = std::to_string(connection_manager_.random_generator_.random());
+        serverSpan.parentId = twlSpanSpilts[2];
+        serverSpan.deepId = twlSpanSpilts[4] + '.' + twlSpanSpilts[5];
+        serverSpan.serviceName = std::string(std::getenv("TWL_LABEL_app"));
+        serverSpan.parentServiceName = twlSpanSpilts[3];
+        serverSpan.spanType = "http.gateway";
+        serverSpan.spanName = std::string(request_headers_->getMethodValue()) + "_" + std::string(request_headers_->getPathValue());
+        serverSpan.spanKind = "server";
+        serverSpan.localIp = connection_manager_.local_info_.address()->ip()->addressAsString();
+        serverSpan.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(connection_manager_.timeSource().systemTime().time_since_epoch()).count();
+        serverSpan.zpBenchId = twlSpanSpilts[6];
+
+        clientSpan.traceId = twlSpanSpilts[0];
+        clientSpan.spanId = std::to_string(connection_manager_.random_generator_.random());
+        clientSpan.parentId = serverSpan.spanId;
+        // 这里有个 +1 的逻辑
+        clientSpan.deepId = twlSpanSpilts[4] + '.' + std::to_string(nextDeepIdInt + 1);
+        clientSpan.serviceName = std::string(std::getenv("TWL_LABEL_app"));
+        clientSpan.parentServiceName = std::string(std::getenv("TWL_LABEL_app"));
+        clientSpan.spanType = "http.gateway";
+        clientSpan.spanName = std::string(request_headers_->getMethodValue()) + "_" + std::string(request_headers_->getPathValue());
+        clientSpan.spanKind = "client";
+        clientSpan.localIp = connection_manager_.local_info_.address()->ip()->addressAsString();
+        clientSpan.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(connection_manager_.timeSource().systemTime().time_since_epoch()).count();
+        clientSpan.zpBenchId = twlSpanSpilts[6];
+
+        // todo 这里 nextDeepId 需要修改
+        std::string newTwlSpanContext = clientSpan.traceId + ":" + clientSpan.spanId + ":" + clientSpan.parentId + ":" + clientSpan.parentServiceName + ":" + clientSpan.deepId + ":" + std::to_string(nextDeepIdInt + 2) + ":" + clientSpan.zpBenchId;
+        request_headers_->removeTwlSpanContext();
+        request_headers_->setTwlSpanContext(newTwlSpanContext);
+        return;
+
+    } else {
+
+        serverSpan.traceId = std::to_string(connection_manager_.random_generator_.random());
+        serverSpan.spanId = std::to_string(connection_manager_.random_generator_.random());
+        serverSpan.parentId = "0";
+        serverSpan.deepId = "1";
+        serverSpan.serviceName = std::string(std::getenv("TWL_LABEL_app"));
+        serverSpan.parentServiceName = std::string(std::getenv("TWL_LABEL_app"));
+        serverSpan.spanType = "http.gateway";
+        serverSpan.spanName = std::string(request_headers_->getMethodValue()) + "_" + std::string(request_headers_->getPathValue());
+        serverSpan.spanKind = "server";
+        serverSpan.localIp = connection_manager_.local_info_.address()->ip()->addressAsString();
+        serverSpan.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(connection_manager_.timeSource().systemTime().time_since_epoch()).count();
+        serverSpan.zpBenchId = "0";
+
+        clientSpan.traceId = serverSpan.traceId;
+        clientSpan.spanId = std::to_string(connection_manager_.random_generator_.random());
+        clientSpan.parentId = serverSpan.spanId;
+        clientSpan.deepId = "1.1";
+        clientSpan.serviceName = std::string(std::getenv("TWL_LABEL_app"));
+        clientSpan.parentServiceName = std::string(std::getenv("TWL_LABEL_app"));
+        clientSpan.spanType = "http.gateway";
+        clientSpan.spanName = std::string(request_headers_->getMethodValue()) + "_" + std::string(request_headers_->getPathValue());
+        clientSpan.spanKind = "client";
+        clientSpan.localIp = connection_manager_.local_info_.address()->ip()->addressAsString();
+        clientSpan.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(connection_manager_.timeSource().systemTime().time_since_epoch()).count();
+        clientSpan.zpBenchId = "0";
+
+        std::string newTwlSpanContext = clientSpan.traceId + ":" + clientSpan.spanId + ":" + clientSpan.parentId + ":" + clientSpan.parentServiceName + ":" + clientSpan.deepId + ":2:" + clientSpan.zpBenchId;
+        request_headers_->removeTwlSpanContext();
+        request_headers_->setTwlSpanContext(newTwlSpanContext);
+        return ;
+    }
+
+    return ;
 }
 
 void ConnectionManagerImpl::ActiveStream::traceRequest() {

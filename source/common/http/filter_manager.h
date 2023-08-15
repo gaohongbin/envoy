@@ -290,6 +290,9 @@ struct ActiveStreamDecoderFilter : public ActiveStreamFilterBase,
   void requestDataTooLarge();
   void requestDataDrained();
 
+  // tcloud trace
+  void writeTCloudTrace() override;
+
   void requestRouteConfigUpdate(
       Http::RouteConfigUpdatedCallbackSharedPtr route_config_updated_cb) override;
   absl::optional<Router::ConfigConstSharedPtr> routeConfig();
@@ -576,6 +579,10 @@ public:
    * Returns whether internal redirects with request bodies is enabled.
    */
   virtual bool enableInternalRedirectsWithBody() const PURE;
+
+
+  // tcloud trace
+  virtual void writeTCloudTrace() PURE;
 };
 
 /**
@@ -663,9 +670,9 @@ public:
             if (tcloud_map_) {
               ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is not null");
             } else {
-              ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is null");
             }
-        }
+      ENVOY_LOG(debug, "tcloud FilterManager tcloud_map_ is null");
+  }
   ~FilterManager() override {
     ASSERT(state_.destroyed_);
     ASSERT(state_.filter_call_state_ == 0);

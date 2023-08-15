@@ -295,7 +295,7 @@ public:
 
   // 为了能让 envoy 同时打印日志到 stdout 和 file, 这里新增了 FancySink, 用来处理日志文件输出
   static spdlog::sink_ptr getTraceFancySink(const std::string& traceLogPath) {
-    static spdlog::sink_ptr traceFancySink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(traceLogPath, 50, 5, false);
+    static spdlog::sink_ptr traceFancySink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(traceLogPath, 1024*100, 5, false);
     return traceFancySink;
   }
 
@@ -593,7 +593,7 @@ using t_logclock = std::chrono::steady_clock; // NOLINT
 // 打印 trace 的日志
 #define ENVOY_TRACE_LOG(LEVEL, FORMAT, ...)                                                \
   do {                                                                                     \
-    c(LEVEL, FORMAT, ##__VA_ARGS__);                                         \
+    FANCY_TRACE_LOG(LEVEL, FORMAT, ##__VA_ARGS__);                                         \
   } while (0)
 
 } // namespace Envoy
