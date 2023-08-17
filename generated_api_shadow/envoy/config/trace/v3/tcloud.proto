@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package envoy.config.trace.v3;
+
+import "google/protobuf/wrappers.proto";
+
+import "udpa/annotations/migrate.proto";
+import "udpa/annotations/sensitive.proto";
+import "udpa/annotations/status.proto";
+import "validate/validate.proto";
+
+option java_package = "io.envoyproxy.envoy.config.trace.v3";
+option java_outer_classname = "TCloudTraceProto";
+option java_multiple_files = true;
+option (udpa.annotations.file_migrate).move_to_package =
+    "envoy.extensions.tracers.tcloud.v4alpha";
+option (udpa.annotations.file_status).package_version_status = ACTIVE;
+
+message TCloudTraceConfig {
+  // SkyWalking collector service.
+}

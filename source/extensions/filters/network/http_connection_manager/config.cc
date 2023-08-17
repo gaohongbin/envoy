@@ -430,6 +430,7 @@ HttpConnectionManagerConfig::HttpConnectionManagerConfig(
     user_agent_ = context_.localInfo().clusterName();
   }
 
+  // 处理 httpConnectionManager 下的 trace 配置
   if (config.has_tracing()) {
     http_tracer_ = http_tracer_manager.getOrCreateHttpTracer(getPerFilterTracerConfig(config));
 

@@ -1531,7 +1531,7 @@ void Filter::onUpstreamData(Buffer::Instance& data, UpstreamRequest& upstream_re
   }
 
   // tcloud trace 写入 trace 信息
-  callbacks_->writeTCloudTrace();
+  // callbacks_->writeTCloudTrace();
 
   callbacks_->encodeData(data, end_stream);
 }

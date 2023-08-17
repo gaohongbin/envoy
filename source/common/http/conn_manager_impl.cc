@@ -732,6 +732,7 @@ void ConnectionManagerImpl::ActiveStream::completeRequest() {
     connection_manager_.config_.tracingStats().health_check_.inc();
   }
 
+  // 这里完成 downstreamspan
   if (active_span_) {
     Tracing::HttpTracerUtility::finalizeDownstreamSpan(
         *active_span_, request_headers_.get(), response_headers_.get(), response_trailers_.get(),
@@ -1183,7 +1184,7 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(RequestHeaderMapPtr&& he
 
   // 这里生成 tcloud trace 相关信息
   if (true) {
-      createTCloudTraceSpan();
+      // createTCloudTraceSpan();
   }
 
   ENVOY_STREAM_LOG(debug, "TCloud 是否插入了 Sw8, request headers complete:\n{}", *this, *request_headers_);
